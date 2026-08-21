@@ -223,7 +223,7 @@ export const BUILTIN_PROP_PRESETS: PropPreset[] = [
         <rect x="10" y="70" width="80" height="15" fill="#52351d" stroke="#2b1a0d" stroke-width="3"/>
         <line x1="25" y1="20" x2="25" y2="70" stroke="#2b1a0d" stroke-width="4"/>
         <line x1="75" y1="20" x2="75" y2="70" stroke="#2b1a0d" stroke-width="4"/>
-        <line x1="15" y1="30" x2="85" y2="30" stroke="# silver" stroke-width="4"/>
+        <line x1="15" y1="30" x2="85" y2="30" stroke="#c0c0c0" stroke-width="4"/>
         <line x1="35" y1="15" x2="35" y2="75" stroke="#c0c0c0" stroke-width="3"/>
         <line x1="50" y1="15" x2="50" y2="75" stroke="#ffd700" stroke-width="3"/>
         <line x1="65" y1="15" x2="65" y2="75" stroke="#c0c0c0" stroke-width="3"/>
