@@ -90,7 +90,11 @@ jobs:
 
       - name: Install Frontend Dependencies
         run: |
-          npm install --include=optional
+          npm install
+
+      - name: Ensure Platform Tauri CLI Binary
+        run: |
+          npm install -D @tauri-apps/cli@^2.2.0 --force
 
       - name: Build Tauri Desktop Application
         uses: tauri-apps/tauri-action@v0
