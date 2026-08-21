@@ -89,12 +89,15 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
 
       - name: Install Frontend Dependencies
+        shell: bash
         run: |
-          npm install
+          rm -f package-lock.json
+          npm install --no-audit
 
-      - name: Ensure Platform Tauri CLI Binary
+      - name: Pre-build Frontend & Icons
+        shell: bash
         run: |
-          npm install -D @tauri-apps/cli@^2.2.0 --force
+          npm run build
 
       - name: Build Tauri Desktop Application
         uses: tauri-apps/tauri-action@v0
