@@ -191,7 +191,6 @@ pub async fn open_player_window(app: AppHandle, click_through: Option<bool>) -> 
         .title("AetherMap - Player Projection Display")
         .inner_size(1920.0, 1080.0)
         .fullscreen(false)
-        .transparent(true)
         .build()
         .map_err(|e| e.to_string())?;
 
