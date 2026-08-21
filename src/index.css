@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: #000000;
+  color: #f4f4f5;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Optimize GPU rasterization for smooth 120fps video maps and panning */
+.transform-gpu {
+  transform: translateZ(0);
+  will-change: transform;
+}

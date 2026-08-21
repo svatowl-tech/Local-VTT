@@ -1,0 +1,118 @@
+name: Release & Build Multiplatform Binaries
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  version-and-release:
+    name: Auto Versioning & Release
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.get_version.outputs.tag }}
+      release_name: ${{ steps.get_version.outputs.name }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine Version and Tag
+        id: get_version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          else
+            SHORT_SHA=$(git rev-parse --short HEAD)
+            TIMESTAMP=$(date +'%Y%m%d%H%M')
+            # Extract version from package.json if present
+            PKG_VER=$(node -p "require('./package.json').version || '1.0.0'")
+            TAG="v${PKG_VER}-${TIMESTAMP}-${SHORT_SHA}"
+          fi
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "name=AetherMap ${TAG}" >> $GITHUB_OUTPUT
+          echo "Generated Tag: ${TAG}"
+
+      - name: Create GitHub Release Draft
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_version.outputs.tag }}
+          name: ${{ steps.get_version.outputs.name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+
+  build-tauri:
+    name: Build Tauri Binaries (${{ matrix.platform }})
+    needs: version-and-release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'windows-latest'
+            args: ''
+          - platform: 'macos-latest'
+            args: ''
+          - platform: 'ubuntu-22.04'
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Rust Stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install Linux System Dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Install Frontend Dependencies
+        run: npm ci || npm install
+
+      - name: Build Tauri Desktop Application
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ needs.version-and-release.outputs.release_tag }}
+          releaseName: ${{ needs.version-and-release.outputs.release_name }}
+          releaseBody: |
+            ## 🎮 AetherMap Desktop Release (${{ needs.version-and-release.outputs.release_tag }})
+            
+            Автоматическая кроссплатформенная сборка для настольных ролевых игр с проектором и интерактивным столом.
+            
+            ### 📦 Содержимое релиза:
+            - **Windows**: `.msi` инсталлятор и портативный `.exe`
+            - **macOS**: `.dmg` образ диска и `.app`
+            - **Linux**: `.AppImage` и `.deb` пакеты
+            
+            ### ✨ Особенности:
+            - Независимый вывод на второй экран / проектор для игроков
+            - Движок тумана войны (Fog of War) и анимаций стихий на Rust
+            - Поддержка видеокарт (MP4/WebM) и бесшовная единая папка ассетов
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}

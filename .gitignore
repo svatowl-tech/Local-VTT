@@ -1,0 +1,18 @@
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+
+# Rust / Tauri target folders
+src-tauri/target/
+target/
+*.pdb
+*.exe
+*.dmg
+*.deb
+*.appimage
+
