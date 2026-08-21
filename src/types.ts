@@ -23,6 +23,7 @@ export interface MapItem {
   layer?: ObjectLayerType;
   locked?: boolean;
   hiddenFromPlayers?: boolean;
+  tags?: string[];
   // Sub-map portal & Map link capabilities (for global maps and nested scenes)
   isSubmapPortal?: boolean;
   submapVaultId?: string;
@@ -173,6 +174,7 @@ export interface AudioTrack {
   url: string;
   duration?: number;
   category?: string;
+  tags?: string[];
 }
 
 export interface AudioPlaylist {
@@ -182,6 +184,7 @@ export interface AudioPlaylist {
   icon?: string;
   description?: string;
   tracks: AudioTrack[];
+  tags?: string[];
 }
 
 export interface SoundEffect {
@@ -192,6 +195,7 @@ export interface SoundEffect {
   presetType?: 'sword' | 'dragon' | 'thunder' | 'spell' | 'dice' | 'horn' | 'door' | 'cheer' | 'chime';
   category?: string;
   color?: string;
+  tags?: string[];
 }
 
 export interface AudioState {

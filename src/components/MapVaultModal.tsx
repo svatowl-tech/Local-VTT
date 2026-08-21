@@ -384,6 +384,18 @@ export const MapVaultModal: React.FC<Props> = ({
                             {item.description}
                           </p>
                         )}
+                        {item.tags && item.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {item.tags.slice(0, 4).map((tag, tIdx) => (
+                              <span
+                                key={tIdx}
+                                className="text-[9px] font-medium bg-zinc-900 text-zinc-400 border border-zinc-800/85 px-1.5 py-0.5 rounded"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       {/* Action Buttons */}

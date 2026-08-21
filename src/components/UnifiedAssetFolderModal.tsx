@@ -34,6 +34,7 @@ import { mapLibraryCatalog } from '../services/mapLibraryCatalog';
 import { audioEngine } from '../services/audioEngine';
 import { diskAssetAutoSync, DiskSyncState } from '../services/diskAssetAutoSync';
 import { TabletopSessionState, UnifiedAssetFolderStats, MapItem } from '../types';
+import { autoTagResource } from '../utils/taggingEngine';
 
 interface Props {
   isOpen: boolean;
@@ -166,6 +167,7 @@ export const UnifiedAssetFolderModal: React.FC<Props> = ({
 
     const uploadedMaps: MapItem[] = parsed.maps.map((m) => {
       const url = URL.createObjectURL(m.file);
+      const category = m.category || 'Общее';
       return {
         id: `uploaded-map-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         name: m.name,
@@ -183,13 +185,15 @@ export const UnifiedAssetFolderModal: React.FC<Props> = ({
         hash: 'upload-' + Math.random().toString(36).substring(2, 8),
         fileSize: m.file.size || 0,
         format: m.file.name.split('.').pop() || 'png',
-        category: m.category || 'Общее',
+        category,
         layer: 'background',
+        tags: autoTagResource(m.name, category),
       };
     });
 
     const uploadedProps: MapItem[] = parsed.props.map((p) => {
       const url = URL.createObjectURL(p.file);
+      const category = p.category || 'Объекты';
       return {
         id: `uploaded-prop-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
         name: p.name,
@@ -207,8 +211,9 @@ export const UnifiedAssetFolderModal: React.FC<Props> = ({
         hash: 'upload-' + Math.random().toString(36).substring(2, 8),
         fileSize: p.file.size || 0,
         format: p.file.name.split('.').pop() || 'png',
-        category: p.category || 'Объекты',
+        category,
         layer: 'props',
+        tags: autoTagResource(p.name, category),
       };
     });
 

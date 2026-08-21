@@ -183,12 +183,35 @@ export function getSessionState(): TabletopSessionState {
   return currentSessionState;
 }
 
+function syncActiveTabOnServer(): void {
+  const activeTabId = currentSessionState.activeTabId;
+  if (activeTabId && currentSessionState.tabs) {
+    const activeTabIdx = currentSessionState.tabs.findIndex((t) => t.id === activeTabId);
+    if (activeTabIdx !== -1) {
+      currentSessionState.tabs[activeTabIdx] = {
+        ...currentSessionState.tabs[activeTabIdx],
+        maps: currentSessionState.maps || [],
+        activeMapId: currentSessionState.activeMapId || null,
+        camera: currentSessionState.camera,
+        fog: currentSessionState.fog,
+        grid: currentSessionState.grid,
+        drawings: currentSessionState.drawings || [],
+        spellTemplates: currentSessionState.spellTemplates || [],
+        animatedEffects: currentSessionState.animatedEffects || [],
+        layersConfig: currentSessionState.layersConfig || DEFAULT_LAYERS_CONFIG as any,
+        updatedAt: Date.now(),
+      };
+    }
+  }
+}
+
 export function updateSessionState(partial: Partial<TabletopSessionState>): TabletopSessionState {
   currentSessionState = {
     ...currentSessionState,
     ...partial,
     updatedAt: Date.now(),
   };
+  syncActiveTabOnServer();
   return currentSessionState;
 }
 
@@ -198,6 +221,7 @@ export function addDrawingStroke(stroke: TabletopSessionState['drawings'][0]): T
     drawings: [...currentSessionState.drawings, stroke],
     updatedAt: Date.now(),
   };
+  syncActiveTabOnServer();
   return currentSessionState;
 }
 
@@ -207,6 +231,7 @@ export function clearDrawings(): TabletopSessionState {
     drawings: [],
     updatedAt: Date.now(),
   };
+  syncActiveTabOnServer();
   return currentSessionState;
 }
 
@@ -216,6 +241,7 @@ export function addSpellTemplate(template: TabletopSessionState['spellTemplates'
     spellTemplates: [...currentSessionState.spellTemplates, template],
     updatedAt: Date.now(),
   };
+  syncActiveTabOnServer();
   return currentSessionState;
 }
 
@@ -230,6 +256,7 @@ export function updateSpellTemplate(
     ),
     updatedAt: Date.now(),
   };
+  syncActiveTabOnServer();
   return currentSessionState;
 }
 
@@ -239,6 +266,7 @@ export function removeSpellTemplate(id: string): TabletopSessionState {
     spellTemplates: currentSessionState.spellTemplates.filter((t) => t.id !== id),
     updatedAt: Date.now(),
   };
+  syncActiveTabOnServer();
   return currentSessionState;
 }
 
@@ -248,6 +276,7 @@ export function addAnimatedEffect(effect: TabletopSessionState['animatedEffects'
     animatedEffects: [...currentSessionState.animatedEffects, effect],
     updatedAt: Date.now(),
   };
+  syncActiveTabOnServer();
   return currentSessionState;
 }
 
@@ -257,6 +286,7 @@ export function removeAnimatedEffect(id: string): TabletopSessionState {
     animatedEffects: currentSessionState.animatedEffects.filter((e) => e.id !== id),
     updatedAt: Date.now(),
   };
+  syncActiveTabOnServer();
   return currentSessionState;
 }
 
@@ -266,6 +296,7 @@ export function updateLaserPointer(laser: TabletopSessionState['laserPointer']):
     laserPointer: laser,
     updatedAt: Date.now(),
   };
+  syncActiveTabOnServer();
   return currentSessionState;
 }
 
@@ -278,6 +309,7 @@ export function updateCameraState(cameraPartial: Partial<TabletopSessionState['c
     },
     updatedAt: Date.now(),
   };
+  syncActiveTabOnServer();
   return currentSessionState;
 }
 
@@ -290,6 +322,7 @@ export function updateFogState(fogPartial: Partial<TabletopSessionState['fog']>)
     },
     updatedAt: Date.now(),
   };
+  syncActiveTabOnServer();
   return currentSessionState;
 }
 
@@ -302,6 +335,7 @@ export function updateGridState(gridPartial: Partial<TabletopSessionState['grid'
     },
     updatedAt: Date.now(),
   };
+  syncActiveTabOnServer();
   return currentSessionState;
 }
 
@@ -319,6 +353,7 @@ export function updatePlayerBlackoutState(blackoutPartial: Partial<TabletopSessi
     },
     updatedAt: Date.now(),
   };
+  syncActiveTabOnServer();
   return currentSessionState;
 }
 
@@ -331,5 +366,6 @@ export function updateLayersConfigState(layersPartial: Partial<TabletopSessionSt
     },
     updatedAt: Date.now(),
   };
+  syncActiveTabOnServer();
   return currentSessionState;
 }

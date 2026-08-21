@@ -130,7 +130,8 @@ export const MapSelectorModal: React.FC<Props> = ({
       const matchName = (m.name || '').toLowerCase().includes(query);
       const matchFormat = (m.format || '').toLowerCase().includes(query);
       const matchCat = (m.category || '').toLowerCase().includes(query);
-      if (!matchName && !matchFormat && !matchCat) return false;
+      const matchTags = m.tags?.some((t) => t.toLowerCase().includes(query)) || false;
+      if (!matchName && !matchFormat && !matchCat && !matchTags) return false;
     }
 
     return true;
@@ -436,6 +437,18 @@ export const MapSelectorModal: React.FC<Props> = ({
                           <p className="text-[10px] font-mono text-zinc-500 mt-0.5">
                             {mapItem.category || 'Общее'} • {mapItem.width}x{mapItem.height}
                           </p>
+                          {mapItem.tags && mapItem.tags.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {mapItem.tags.slice(0, 3).map((tag, tIdx) => (
+                                <span
+                                  key={tIdx}
+                                  className="text-[8px] font-medium bg-zinc-900 text-zinc-400 border border-zinc-800/80 px-1.5 py-0.5 rounded"
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
 
                         <div className="flex items-center justify-between pt-1 border-t border-zinc-900">

@@ -31,8 +31,21 @@ export const MiniAudioDock: React.FC<Props> = memo(({
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let lastState = audioEngine.getState();
     const unsub = audioEngine.subscribe(() => {
-      setAudioState(audioEngine.getState());
+      const newState = audioEngine.getState();
+      if (
+        newState.isPlaying !== lastState.isPlaying ||
+        newState.activeTrackId !== lastState.activeTrackId ||
+        newState.activePlaylistId !== lastState.activePlaylistId ||
+        newState.volume !== lastState.volume ||
+        newState.isLoop !== lastState.isLoop ||
+        newState.isShuffle !== lastState.isShuffle ||
+        newState.playlists !== lastState.playlists
+      ) {
+        lastState = newState;
+        setAudioState(newState);
+      }
     });
     return unsub;
   }, []);

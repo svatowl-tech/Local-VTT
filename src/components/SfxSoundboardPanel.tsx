@@ -70,8 +70,16 @@ export const SfxSoundboardPanel: React.FC<Props> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    let lastState = audioEngine.getState();
     const unsubscribe = audioEngine.subscribe(() => {
-      setAudioState(audioEngine.getState());
+      const newState = audioEngine.getState();
+      if (
+        newState.sfxVolume !== lastState.sfxVolume ||
+        newState.soundEffects !== lastState.soundEffects
+      ) {
+        lastState = newState;
+        setAudioState(newState);
+      }
     });
     return unsubscribe;
   }, []);
@@ -96,7 +104,8 @@ export const SfxSoundboardPanel: React.FC<Props> = ({
     const matchesQuery =
       !searchQuery ||
       sfx.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (sfx.category && sfx.category.toLowerCase().includes(searchQuery.toLowerCase()));
+      (sfx.category && sfx.category.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (sfx.tags && sfx.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase())));
     return matchesCategory && matchesQuery;
   });
 
@@ -396,6 +405,11 @@ export const SfxSoundboardPanel: React.FC<Props> = ({
                   <span className="font-bold text-[11px] text-zinc-200 group-hover:text-amber-300 truncate w-full mt-1.5">
                     {sfx.name}
                   </span>
+                  {sfx.tags && sfx.tags.length > 0 && (
+                    <span className="text-[8px] text-zinc-500 font-mono truncate w-full mt-0.5">
+                      #{sfx.tags[0]}
+                    </span>
+                  )}
                 </div>
               );
             })}

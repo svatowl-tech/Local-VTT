@@ -55,11 +55,28 @@ export const AudioPlayerModal: React.FC<Props> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    if (!isOpen) return;
+
+    let lastState = audioEngine.getState();
     const unsubscribe = audioEngine.subscribe(() => {
-      setAudioState(audioEngine.getState());
+      const newState = audioEngine.getState();
+      if (
+        newState.isPlaying !== lastState.isPlaying ||
+        newState.activeTrackId !== lastState.activeTrackId ||
+        newState.activePlaylistId !== lastState.activePlaylistId ||
+        newState.volume !== lastState.volume ||
+        newState.isLoop !== lastState.isLoop ||
+        newState.isShuffle !== lastState.isShuffle ||
+        newState.playlists !== lastState.playlists ||
+        Math.floor(newState.currentTime) !== Math.floor(lastState.currentTime) ||
+        newState.duration !== lastState.duration
+      ) {
+        lastState = newState;
+        setAudioState(newState);
+      }
     });
     return unsubscribe;
-  }, []);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -423,6 +440,15 @@ export const AudioPlayerModal: React.FC<Props> = ({
                             <p className="text-[10px] text-zinc-400 font-mono mt-0.5">
                               {track.artist || 'Случайный трек'} • №{idx + 1}
                             </p>
+                            {track.tags && track.tags.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {track.tags.slice(0, 3).map((tag, tIdx) => (
+                                  <span key={tIdx} className="text-[8px] bg-zinc-900 border border-zinc-800 text-zinc-400 px-1 py-0.2 rounded font-mono">
+                                    {tag}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
 

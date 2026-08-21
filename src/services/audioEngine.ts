@@ -1,11 +1,11 @@
 import { AudioPlaylist, AudioTrack, SoundEffect } from '../types';
 import { DEFAULT_PLAYLISTS } from '../data/defaultPlaylists';
+import { autoTagResource } from '../utils/taggingEngine';
 
 type AudioListener = () => void;
 
 class AudioEngine {
   private audioElement: HTMLAudioElement | null = null;
-  private audioContext: AudioContext | null = null;
   
   // State
   private currentPlaylistId: string | null = null;
@@ -35,19 +35,23 @@ class AudioEngine {
   private currentQueueIndex: number = 0;
   
   private listeners: Set<AudioListener> = new Set();
-  private isProceduralPlaying: boolean = false;
-  private proceduralOscillators: OscillatorNode[] = [];
 
   constructor() {
     if (typeof window !== 'undefined') {
       this.audioElement = new Audio();
       this.audioElement.volume = this.volume;
 
+      let lastNotifiedSecond = -1;
       this.audioElement.addEventListener('timeupdate', () => {
         if (this.audioElement) {
           this.currentTime = this.audioElement.currentTime;
           this.duration = this.audioElement.duration || 0;
-          this.notifyListeners();
+          
+          const currentSecond = Math.floor(this.currentTime);
+          if (currentSecond !== lastNotifiedSecond) {
+            lastNotifiedSecond = currentSecond;
+            this.notifyListeners();
+          }
         }
       });
 
@@ -56,8 +60,7 @@ class AudioEngine {
       });
 
       this.audioElement.addEventListener('error', (e) => {
-        console.warn('Audio playback error on source URL, falling back to procedural audio synthesis:', e);
-        this.playProceduralFallback();
+        console.warn('Audio playback error on source URL:', e);
       });
     }
   }
@@ -107,12 +110,14 @@ class AudioEngine {
     const playlist = this.playlists.find((p) => p.id === playlistId);
     if (!playlist) return;
 
-    this.stopProceduralFallback();
     this.currentPlaylistId = playlistId;
 
     if (playlist.tracks.length === 0) {
       this.currentTrackId = null;
-      this.playProceduralFallback();
+      if (this.audioElement) {
+        this.audioElement.pause();
+      }
+      this.isPlaying = false;
       this.notifyListeners();
       return;
     }
@@ -170,8 +175,7 @@ class AudioEngine {
             this.notifyListeners();
           })
           .catch((err) => {
-            console.warn('Autoplay error or missing direct file audio stream, triggering Web Audio synth:', err);
-            this.playProceduralFallback();
+            console.warn('Autoplay error or missing direct file audio stream:', err);
           });
       }
     }
@@ -190,22 +194,17 @@ class AudioEngine {
   }
 
   public togglePlayPause(): void {
-    if (!this.currentTrackId && this.playlists.length > 0) {
-      this.playPlaylist(this.playlists[0].id);
-      return;
-    }
-
-    if (this.isProceduralPlaying) {
-      if (this.isPlaying) {
-        this.stopProceduralFallback();
-        this.isPlaying = false;
-      } else {
-        this.playProceduralFallback();
+    // If we have a playlist selected, but no track is selected
+    if (!this.currentTrackId) {
+      const playlist = this.getCurrentPlaylist() || (this.playlists.length > 0 ? this.playlists[0] : null);
+      if (playlist && playlist.tracks.length > 0) {
+        this.playPlaylist(playlist.id);
       }
       this.notifyListeners();
       return;
     }
 
+    // Standard audio track play/pause
     if (!this.audioElement) return;
 
     if (this.isPlaying) {
@@ -215,8 +214,8 @@ class AudioEngine {
       this.audioElement.play().then(() => {
         this.isPlaying = true;
         this.notifyListeners();
-      }).catch(() => {
-        this.playProceduralFallback();
+      }).catch((err) => {
+        console.warn('Playback resume failed:', err);
       });
     }
     this.notifyListeners();
@@ -302,137 +301,146 @@ class AudioEngine {
     }
   }
 
-  // Add Custom Track or Playlist
-  public addCustomPlaylist(name: string, category: AudioPlaylist['category'], icon: string = '🎵'): AudioPlaylist {
+  // Playlists CRUD
+  public loadDiscoveredPlaylists(discovered: any[]): void {
+    const existingIds = new Set(this.playlists.map((p) => p.id));
+    const merged = [...this.playlists];
+
+    for (const pl of discovered) {
+      const plId = pl.id || `playlist-custom-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      const name = pl.name || pl.playlistName || 'Дисковый плейлист';
+      const category = pl.category || 'custom';
+      
+      const rawTracks = pl.tracks || [];
+      const tracks: AudioTrack[] = rawTracks.map((t: any, i: number) => {
+        const title = t.title || t.name || 'Без названия';
+        return {
+          id: t.id || `track-custom-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 4)}`,
+          title,
+          url: t.url || '',
+          artist: t.artist,
+          duration: t.duration,
+          category: t.category,
+          tags: t.tags && t.tags.length > 0 ? t.tags : autoTagResource(title, name),
+        };
+      });
+
+      const existingIndex = merged.findIndex((p) => p.id === plId || p.name === name);
+      if (existingIndex === -1) {
+        merged.push({
+          id: plId,
+          name,
+          category: category as any,
+          icon: pl.icon || getPlaylistIconByName(name),
+          description: pl.description || 'Импортированный плейлист',
+          tracks,
+          tags: pl.tags && pl.tags.length > 0 ? pl.tags : autoTagResource(name),
+        });
+      } else {
+        // Merge tracks
+        const originalTracks = merged[existingIndex].tracks;
+        const originalUrls = new Set(originalTracks.map((t) => t.url));
+        const newTracks = [...originalTracks];
+
+        for (const t of tracks) {
+          if (!originalUrls.has(t.url)) {
+            newTracks.push(t);
+            originalUrls.add(t.url);
+          }
+        }
+        merged[existingIndex] = { ...merged[existingIndex], tracks: newTracks };
+      }
+    }
+
+    this.playlists = merged;
+    this.notifyListeners();
+  }
+
+  public loadDiscoveredSFX(discovered: any[]): void {
+    const existingUrls = new Set(this.soundEffects.map((s) => s.url).filter(Boolean));
+    const merged = [...this.soundEffects];
+
+    for (const sfx of discovered) {
+      if (sfx.url && !existingUrls.has(sfx.url)) {
+        const name = sfx.name || 'Звуковой эффект';
+        const bank = sfx.bank || sfx.category || 'custom';
+        merged.push({
+          id: sfx.id || `sfx-custom-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          name,
+          icon: sfx.icon || getSfxIconByName(name, bank),
+          url: sfx.url,
+          category: bank,
+          tags: sfx.tags && sfx.tags.length > 0 ? sfx.tags : autoTagResource(name, bank),
+        });
+        existingUrls.add(sfx.url);
+      }
+    }
+
+    this.soundEffects = merged;
+    this.notifyListeners();
+  }
+
+  public addCustomPlaylist(
+    name: string,
+    category: 'background' | 'combat' | 'alarm' | 'dungeon' | 'magic' | 'custom' = 'background',
+    icon?: string
+  ): AudioPlaylist {
     const newPlaylist: AudioPlaylist = {
-      id: `playlist-custom-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      id: `playlist-custom-${Date.now()}`,
       name,
+      icon: icon || getPlaylistIconByName(name),
       category,
-      icon,
       tracks: [],
     };
-
     this.playlists = [...this.playlists, newPlaylist];
     this.notifyListeners();
     return newPlaylist;
   }
 
-  /**
-   * Load or merge discovered playlists and tracks from local disk asset folder
-   */
-  public loadDiscoveredPlaylists(
-    discovered: Array<{ playlistName: string; category?: string; tracks: Array<{ title: string; url: string }> }>
-  ): void {
-    if (!discovered || discovered.length === 0) return;
-
-    let updatedPlaylists = [...this.playlists];
-
-    for (const item of discovered) {
-      let existingPlaylist = updatedPlaylists.find(
-        (p) => p.name.toLowerCase() === item.playlistName.toLowerCase()
-      );
-
-      const tracksToAdd: AudioTrack[] = item.tracks.map((t) => ({
-        id: `track-disk-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-        title: t.title,
-        url: t.url,
-        duration: 180,
-      }));
-
-      if (existingPlaylist) {
-        // Merge tracks into existing playlist, avoiding exact URL duplicates
-        const existingUrls = new Set(existingPlaylist.tracks.map((t) => t.url));
-        const filteredNewTracks = tracksToAdd.filter((t) => !existingUrls.has(t.url));
-
-        updatedPlaylists = updatedPlaylists.map((p) => {
-          if (p.id === existingPlaylist!.id) {
-            return {
-              ...p,
-              tracks: [...p.tracks, ...filteredNewTracks],
-            };
-          }
-          return p;
-        });
-      } else {
-        // Create new playlist
-        const newPlaylist: AudioPlaylist = {
-          id: `playlist-disk-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-          name: item.playlistName,
-          category: (item.category as any) || 'ambient',
-          icon: getPlaylistIconByName(item.playlistName),
-          tracks: tracksToAdd,
-        };
-        updatedPlaylists.push(newPlaylist);
-      }
-    }
-
-    this.playlists = updatedPlaylists;
-    this.notifyListeners();
-  }
-
-  /**
-   * Load or merge discovered SFX items from local disk asset folder
-   */
-  public loadDiscoveredSFX(
-    discoveredSfx: Array<{ name: string; bank: string; url: string; icon?: string }>
-  ): void {
-    if (!discoveredSfx || discoveredSfx.length === 0) return;
-
-    const existingUrls = new Set(this.soundEffects.map((s) => s.url));
-    const newEffects: SoundEffect[] = [];
-
-    for (const item of discoveredSfx) {
-      if (item.url && !existingUrls.has(item.url)) {
-        newEffects.push({
-          id: `sfx-disk-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-          name: item.name,
-          category: item.bank.toLowerCase(),
-          icon: item.icon || getSfxIconByName(item.name, item.bank),
-          url: item.url,
-        });
-      }
-    }
-
-    if (newEffects.length > 0) {
-      this.soundEffects = [...this.soundEffects, ...newEffects];
-      this.notifyListeners();
-    }
-  }
-
-  public addTrackToPlaylist(playlistId: string, track: Omit<AudioTrack, 'id'>): void {
+  public addTrackToPlaylist(playlistId: string, track: Omit<AudioTrack, 'id'>): AudioTrack {
     const newTrack: AudioTrack = {
       ...track,
-      id: `track-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      id: `track-custom-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
     };
 
-    this.playlists = this.playlists.map((p) => {
-      if (p.id === playlistId) {
+    this.playlists = this.playlists.map((pl) => {
+      if (pl.id === playlistId) {
         return {
-          ...p,
-          tracks: [...p.tracks, newTrack],
+          ...pl,
+          tracks: [...pl.tracks, newTrack],
         };
       }
-      return p;
+      return pl;
     });
 
     if (this.currentPlaylistId === playlistId) {
-      const playlist = this.getCurrentPlaylist();
-      if (playlist) this.buildQueue(playlist, this.currentTrackId || undefined);
+      const pl = this.getCurrentPlaylist();
+      if (pl) {
+        this.buildQueue(pl, this.currentTrackId || undefined);
+      }
     }
 
     this.notifyListeners();
+    return newTrack;
   }
 
   public removeTrackFromPlaylist(playlistId: string, trackId: string): void {
-    this.playlists = this.playlists.map((p) => {
-      if (p.id === playlistId) {
+    this.playlists = this.playlists.map((pl) => {
+      if (pl.id === playlistId) {
         return {
-          ...p,
-          tracks: p.tracks.filter((t) => t.id !== trackId),
+          ...pl,
+          tracks: pl.tracks.filter((t) => t.id !== trackId),
         };
       }
-      return p;
+      return pl;
     });
+
+    if (this.currentPlaylistId === playlistId) {
+      const pl = this.getCurrentPlaylist();
+      if (pl) {
+        this.buildQueue(pl, this.currentTrackId || undefined);
+      }
+    }
 
     if (this.currentTrackId === trackId) {
       this.nextTrack();
@@ -453,9 +461,9 @@ class AudioEngine {
   }
 
   // Sound Effects CRUD
-  public addSoundEffect(sfx: Omit<SoundEffect, 'id'>): SoundEffect {
+  public addSoundEffect(smit: Omit<SoundEffect, 'id'>): SoundEffect {
     const newSfx: SoundEffect = {
-      ...sfx,
+      ...smit,
       id: `sfx-custom-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
     };
     this.soundEffects = [...this.soundEffects, newSfx];
@@ -473,181 +481,24 @@ class AudioEngine {
     if (typeof window === 'undefined') return;
 
     let url: string | undefined;
-    let preset: string | undefined;
 
     if (typeof effectOrUrlOrPreset === 'object') {
       url = effectOrUrlOrPreset.url;
-      preset = effectOrUrlOrPreset.presetType || effectOrUrlOrPreset.name || effectOrUrlOrPreset.id;
     } else {
       url = effectOrUrlOrPreset.startsWith('http') || effectOrUrlOrPreset.startsWith('blob') ? effectOrUrlOrPreset : undefined;
-      preset = effectOrUrlOrPreset;
     }
 
     if (url) {
       try {
         const audio = new Audio(url);
         audio.volume = this.sfxVolume;
-        audio.play().catch(() => {
-          this.playSyntheticSFX(preset || 'chime');
+        audio.play().catch((err) => {
+          console.warn('Failed to play SFX file:', err);
         });
-        return;
-      } catch {
-        this.playSyntheticSFX(preset || 'chime');
-        return;
+      } catch (err) {
+        console.warn('SFX error:', err);
       }
     }
-
-    this.playSyntheticSFX(preset || 'chime');
-  }
-
-  // Web Audio Procedural Sound Synthesizer Fallback
-  private playProceduralFallback(): void {
-    if (typeof window === 'undefined') return;
-    this.stopProceduralFallback();
-
-    try {
-      // @ts-ignore
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return;
-
-      this.audioContext = new AudioCtx();
-      const ctx = this.audioContext;
-
-      // Create rich ambient drone chords depending on playlist category
-      const playlist = this.getCurrentPlaylist();
-      const cat = playlist?.category || 'background';
-
-      let freqs = [110, 164.81, 220, 261.63]; // A-minor calm ambient
-      if (cat === 'combat') freqs = [73.42, 110, 146.83, 220]; // D-minor heavy battle
-      if (cat === 'alarm') freqs = [82.41, 116.54, 164.81, 233.08]; // E-tritone tension
-      if (cat === 'dungeon') freqs = [55, 110, 130.81, 164.81]; // Dark bass dungeon
-      if (cat === 'magic') freqs = [220, 329.63, 440, 659.25]; // Celestial magic
-
-      this.proceduralOscillators = freqs.map((freq) => {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-
-        osc.type = cat === 'combat' ? 'sawtooth' : 'sine';
-        osc.frequency.setValueAtTime(freq, ctx.currentTime);
-
-        gain.gain.setValueAtTime(0, ctx.currentTime);
-        gain.gain.linearRampToValueAtTime((0.15 * this.volume) / freqs.length, ctx.currentTime + 1.5);
-
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start();
-        return osc;
-      });
-
-      this.isProceduralPlaying = true;
-      this.isPlaying = true;
-      this.notifyListeners();
-    } catch (e) {
-      console.warn('Procedural synth error:', e);
-    }
-  }
-
-  private stopProceduralFallback(): void {
-    if (this.proceduralOscillators.length > 0) {
-      this.proceduralOscillators.forEach((osc) => {
-        try {
-          osc.stop();
-          osc.disconnect();
-        } catch {}
-      });
-      this.proceduralOscillators = [];
-    }
-    if (this.audioContext) {
-      try {
-        this.audioContext.close();
-      } catch {}
-      this.audioContext = null;
-    }
-    this.isProceduralPlaying = false;
-  }
-
-  private playSyntheticSFX(idOrType: string): void {
-    try {
-      // @ts-ignore
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return;
-
-      const ctx = new AudioCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      const typeLower = idOrType.toLowerCase();
-
-      if (typeLower.includes('sword') || typeLower.includes('меч')) {
-        // Metallic clash sweep
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(1400, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(120, ctx.currentTime + 0.22);
-        gain.gain.setValueAtTime(0.35 * this.sfxVolume, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
-      } else if (typeLower.includes('dragon') || typeLower.includes('дракон') || typeLower.includes('рык')) {
-        // Deep low roar sweep
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(180, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.85);
-        gain.gain.setValueAtTime(0.45 * this.sfxVolume, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.85);
-      } else if (typeLower.includes('thunder') || typeLower.includes('гром')) {
-        // Heavy bass rumble
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(90, ctx.currentTime);
-        osc.frequency.linearRampToValueAtTime(25, ctx.currentTime + 0.6);
-        gain.gain.setValueAtTime(0.5 * this.sfxVolume, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
-      } else if (typeLower.includes('spell') || typeLower.includes('fire') || typeLower.includes('магия') || typeLower.includes('взрыв')) {
-        // Magic burst frequency glide
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(950, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(220, ctx.currentTime + 0.45);
-        gain.gain.setValueAtTime(0.4 * this.sfxVolume, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
-      } else if (typeLower.includes('dice') || typeLower.includes('кубик')) {
-        // Rapid staccato dice roll clicks
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(600, ctx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.18);
-        gain.gain.setValueAtTime(0.3 * this.sfxVolume, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
-      } else if (typeLower.includes('horn') || typeLower.includes('горн')) {
-        // Brass war horn tone
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(293.66, ctx.currentTime); // D4
-        osc.frequency.setValueAtTime(440, ctx.currentTime + 0.2); // A4
-        gain.gain.setValueAtTime(0.35 * this.sfxVolume, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
-      } else if (typeLower.includes('door') || typeLower.includes('дверь')) {
-        // Creaking pitch shift
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(320, ctx.currentTime);
-        osc.frequency.linearRampToValueAtTime(540, ctx.currentTime + 0.5);
-        gain.gain.setValueAtTime(0.25 * this.sfxVolume, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
-      } else if (typeLower.includes('cheer') || typeLower.includes('крик')) {
-        // High group rise
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(350, ctx.currentTime);
-        osc.frequency.linearRampToValueAtTime(700, ctx.currentTime + 0.4);
-        gain.gain.setValueAtTime(0.3 * this.sfxVolume, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-      } else {
-        // Generic chime / magic bell
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(880, ctx.currentTime);
-        gain.gain.setValueAtTime(0.3 * this.sfxVolume, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
-      }
-
-      osc.start();
-      osc.stop(ctx.currentTime + 1);
-    } catch {}
   }
 }
 

@@ -269,21 +269,34 @@ export const WindowSwitcherBar: React.FC<Props> = ({
           </button>
         )}
 
-        <button
-          onClick={onOpenGridConfig}
-          className={`h-8 px-2 sm:px-2.5 rounded-lg text-xs font-medium flex items-center space-x-1.5 border transition-colors shrink-0 ${
-            gridEnabled
-              ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/40'
-              : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border-zinc-800'
-          }`}
-          title="Настройка сетки"
-        >
-          <Grid className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-          <span className="hidden 2xl:inline">Сетка</span>
-          {gridEnabled && (
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse ml-0.5 shrink-0" />
-          )}
-        </button>
+        <div className="flex items-center -space-x-px shrink-0">
+          <button
+            onClick={onToggleGrid}
+            className={`h-8 px-2 sm:px-2.5 rounded-l-lg text-xs font-medium flex items-center space-x-1.5 border transition-colors ${
+              gridEnabled
+                ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/40 hover:bg-cyan-500/25'
+                : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border-zinc-800'
+            }`}
+            title={gridEnabled ? "Отключить отображение сетки" : "Включить отображение сетки"}
+          >
+            <Grid className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+            <span className="hidden 2xl:inline">Сетка</span>
+            {gridEnabled && (
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse ml-0.5 shrink-0" />
+            )}
+          </button>
+          <button
+            onClick={onOpenGridConfig}
+            className={`h-8 px-2 rounded-r-lg text-xs font-medium flex items-center border transition-colors ${
+              gridEnabled
+                ? 'bg-cyan-500/15 text-cyan-300 border-y border-r border-l-0 border-cyan-500/40 hover:bg-cyan-500/25'
+                : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border-y border-r border-l-0 border-zinc-800'
+            }`}
+            title="Настройки параметров сетки"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+          </button>
+        </div>
 
         <button
           onClick={onOpenPlayerWindow}

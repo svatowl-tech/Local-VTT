@@ -357,6 +357,7 @@ class DiskAssetAutoSyncService {
           zIndex: 0,
           opacity: 1,
           hash: m.id,
+          tags: m.tags,
         }));
 
         this.mapsUpdateCallback(mappedItems, scanData.mapCategories || []);

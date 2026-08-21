@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, memo } from 'react';
 import { TabletopSessionState, MapItem } from '../types';
-import { Maximize2, Tv, MousePointer, MousePointerClick } from 'lucide-react';
+import { Maximize2, Tv, MousePointer, MousePointerClick, MapPin } from 'lucide-react';
 import { MediaRenderer } from './MediaRenderer';
 import { FogCanvasRenderer } from './FogCanvasRenderer';
 import { GridCanvasRenderer } from './GridCanvasRenderer';
@@ -162,24 +162,46 @@ export const PlayerView: React.FC<Props> = memo(({ session }) => {
     return items
       .slice()
       .sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0))
-      .map((mapItem) => (
-        <div
-          key={mapItem.id}
-          className="absolute overflow-hidden transform-gpu"
-          style={{
-            left: `${mapItem.position.x}px`,
-            top: `${mapItem.position.y}px`,
-            width: `${mapItem.width * mapItem.scale.x}px`,
-            height: `${mapItem.height * mapItem.scale.y}px`,
-            transform: `rotate(${mapItem.rotation}deg)`,
-            zIndex: mapItem.zIndex,
-            opacity: mapItem.opacity,
-            contain: 'layout style',
-          }}
-        >
-          <MediaRenderer mapItem={mapItem} className="w-full h-full object-cover" />
-        </div>
-      ));
+      .map((mapItem) => {
+        const isPortal = !!mapItem.isSubmapPortal;
+        return (
+          <div
+            key={mapItem.id}
+            className={`absolute transform-gpu ${isPortal ? 'overflow-visible' : 'overflow-hidden'}`}
+            style={{
+              left: `${mapItem.position.x}px`,
+              top: `${mapItem.position.y}px`,
+              width: `${mapItem.width * mapItem.scale.x}px`,
+              height: `${mapItem.height * mapItem.scale.y}px`,
+              transform: `rotate(${mapItem.rotation}deg)`,
+              zIndex: mapItem.zIndex,
+              opacity: mapItem.opacity,
+              contain: 'layout style',
+            }}
+          >
+            {isPortal ? (
+              <div className="w-full h-full flex flex-col items-center justify-center relative select-none pointer-events-auto">
+                {/* Pulsing red radar rings */}
+                <div className="absolute w-12 h-12 rounded-full bg-rose-600/20 border border-rose-500/50 animate-ping opacity-75" />
+                <div className="absolute w-8 h-8 rounded-full bg-rose-600/30 border border-rose-500/60 animate-pulse" />
+                
+                {/* Thin detailed red pin */}
+                <div className="relative z-10 filter drop-shadow-[0_4px_8px_rgba(0,0,0,0.8)]">
+                  <MapPin className="w-9 h-9 text-rose-500 fill-rose-950/40 stroke-[1.5]" />
+                </div>
+
+                {/* Floating labels with interactive destination name */}
+                <div className="absolute top-full mt-2 bg-zinc-950/90 backdrop-blur-md px-2.5 py-1 rounded-lg border border-rose-500/30 text-rose-200 text-xs font-bold whitespace-nowrap shadow-[0_4px_12px_rgba(0,0,0,0.9)] flex items-center space-x-1.5 filter drop-shadow-md">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse shrink-0" />
+                  <span>{mapItem.targetVaultMapName || mapItem.name}</span>
+                </div>
+              </div>
+            ) : (
+              <MediaRenderer mapItem={mapItem} className="w-full h-full object-cover" />
+            )}
+          </div>
+        );
+      });
   };
 
   return (
