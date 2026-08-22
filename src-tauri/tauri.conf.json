@@ -36,9 +36,7 @@
     ],
     "macOS": {
       "frameworks": [],
-      "minimumSystemVersion": "10.15",
-      "signingIdentity": "-",
-      "hardenedRuntime": false
+      "minimumSystemVersion": "10.15"
     }
   }
 }
