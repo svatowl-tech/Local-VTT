@@ -53,7 +53,8 @@ pub fn run() {
             commands::parse_lore_raw_data,
             commands::save_lore_item_rust,
             commands::delete_lore_item_rust,
-            commands::scan_lore_folder_incremental_rust
+            commands::scan_lore_folder_incremental_rust,
+            commands::write_json_file_rust
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

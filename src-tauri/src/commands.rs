@@ -381,3 +381,30 @@ pub fn scan_lore_folder_incremental_rust(
 
 
 
+
+#[tauri::command]
+pub fn write_json_file_rust(
+    root_path: String,
+    sub_path: Vec<String>,
+    file_name: String,
+    content: String,
+) -> Result<String, String> {
+    use std::fs;
+    use std::path::PathBuf;
+    
+    let mut path = PathBuf::from(&root_path);
+    for sub in sub_path {
+        path.push(sub);
+    }
+    if !path.exists() {
+        if let Err(e) = fs::create_dir_all(&path) {
+            return Err(format!("Failed to create directories: {}", e));
+        }
+    }
+    path.push(file_name);
+    
+    match fs::write(&path, content) {
+        Ok(_) => Ok(path.to_string_lossy().into_owned()),
+        Err(e) => Err(format!("Failed to write file: {}", e)),
+    }
+}

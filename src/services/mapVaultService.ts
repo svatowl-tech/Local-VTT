@@ -1,3 +1,4 @@
+import { writeDataToContentFolder } from './universalSyncManager';
 import { MapVaultItem, WorkspaceTab, MapItem, MapVaultStats } from '../types';
 import { BUILTIN_VAULT_PRESETS } from './mapVaultPresets';
 
@@ -59,13 +60,18 @@ class MapVaultService {
     this.isLoaded = true;
   }
 
-  private persist() {
+    private persist() {
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
         // Persist all user items (and overridden presets)
         localStorage.setItem(STORAGE_VAULT_KEY, JSON.stringify(this.items));
         localStorage.setItem(STORAGE_CATEGORIES_KEY, JSON.stringify(this.categories));
       }
+      
+      // Also persist universally to the content folder
+      writeDataToContentFolder(['data', 'Vault'], 'vault_items.json', this.items).catch(() => {});
+      writeDataToContentFolder(['data', 'Vault'], 'vault_categories.json', this.categories).catch(() => {});
+      
     } catch (e) {
       console.warn('MapVaultService persist error:', e);
     }
@@ -96,6 +102,51 @@ class MapVaultService {
 
   public getItem(id: string): MapVaultItem | undefined {
     return this.items.find((item) => item.id === id);
+  }
+
+  public reconcileUrls(freshMaps: MapItem[]): void {
+    let changed = false;
+    this.items = this.items.map(item => {
+      let tabChanged = false;
+      const updatedMaps = item.tabSnapshot.maps.map(existingMap => {
+        const freshMap = freshMaps.find(m => m.name === existingMap.name);
+        if (freshMap && (existingMap.url !== freshMap.url || existingMap.thumbnailUrl !== freshMap.thumbnailUrl)) {
+          tabChanged = true;
+          return {
+             ...existingMap,
+             url: freshMap.url,
+             thumbnailUrl: freshMap.thumbnailUrl || freshMap.url,
+          };
+        }
+        return existingMap;
+      });
+
+      if (tabChanged) {
+        changed = true;
+        // Optionally update the vault item's root thumbnail if it matches one of the healed maps
+        let newThumbnail = item.thumbnailUrl;
+        if (newThumbnail && newThumbnail.startsWith('blob:')) {
+          const matchingUpdatedMap = updatedMaps.find(m => newThumbnail && m.thumbnailUrl === newThumbnail);
+          if (matchingUpdatedMap) {
+            newThumbnail = matchingUpdatedMap.thumbnailUrl;
+          } else {
+             // Fallback to first map's thumbnail
+             newThumbnail = updatedMaps[0]?.thumbnailUrl || newThumbnail;
+          }
+        }
+        
+        return {
+           ...item,
+           thumbnailUrl: newThumbnail,
+           tabSnapshot: { ...item.tabSnapshot, maps: updatedMaps }
+        };
+      }
+      return item;
+    });
+
+    if (changed) {
+      this.persist();
+    }
   }
 
   public getCategories(): string[] {

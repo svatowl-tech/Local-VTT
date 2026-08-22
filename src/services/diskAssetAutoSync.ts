@@ -166,6 +166,20 @@ class DiskAssetAutoSyncService {
         this.localFolderConnected = true;
         this.folderName = storedHandle.name;
         this.notify();
+
+        // Attempt silent auto-sync if permission is already granted (e.g., page reload)
+        try {
+          if (typeof storedHandle.queryPermission === 'function') {
+            const perm = await storedHandle.queryPermission({ mode: 'read' });
+            if (perm === 'granted') {
+              setTimeout(() => {
+                this.manualSync();
+              }, 500);
+            }
+          }
+        } catch (e) {
+          // ignore silent fail
+        }
       }
     } catch (e) {
       console.warn('Could not restore directory handle from IDB:', e);

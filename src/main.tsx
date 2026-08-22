@@ -2,7 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
-import { resolveApiUrl } from './utils/apiUrlHelper.ts';
+import { resolveApiUrl, checkIsTauri } from './utils/apiUrlHelper.ts';
 import './index.css';
 
 // Prevent uncaught errors from unhandled asynchronous promises
@@ -17,6 +17,21 @@ if (typeof window !== 'undefined') {
   try {
     Object.defineProperty(window, 'fetch', {
       value: function (input: any, init: any) {
+        let urlStr = '';
+        if (typeof input === 'string') {
+          urlStr = input;
+        } else if (input instanceof URL) {
+          urlStr = input.href;
+        } else if (input && typeof input === 'object' && 'url' in input) {
+          urlStr = (input as any).url;
+        }
+
+        if (checkIsTauri() && urlStr && urlStr.includes('/api/')) {
+          // Fast-fail Express endpoints in Tauri to avoid ERR_CONNECTION_REFUSED network spam.
+          // Tauri uses native Rust fallback paths instead.
+          return Promise.reject(new Error('Express API is not available in Tauri environment.'));
+        }
+
         if (typeof input === 'string') {
           return originalFetch(resolveApiUrl(input), init);
         } else if (input instanceof URL) {

@@ -1,3 +1,4 @@
+import { writeDataToContentFolder } from './universalSyncManager';
 import { TabletopSessionState, MapItem, LayerStackConfig } from '../types';
 import { getIDBSessionState, saveIDBSessionState } from './db';
 import { mapLibraryCatalog } from './mapLibraryCatalog';
@@ -135,6 +136,8 @@ export function getSyncMemorySession(): TabletopSessionState {
 export async function saveLocalSessionState(session: TabletopSessionState): Promise<void> {
   inMemorySessionCache = session;
   await saveIDBSessionState(session);
+  // Auto-backup to content folder
+  writeDataToContentFolder(['data', 'Sessions'], 'active_session.json', session).catch(() => {});
 }
 
 /**

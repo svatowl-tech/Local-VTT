@@ -443,7 +443,7 @@ export const MasterDashboard: React.FC<Props> = memo(({
         {/* Stationary Left Photoshop Toolbar Bar (Solid, anchored sidebar) */}
         <div
           id="master_left_photoshop_bar"
-          className="shrink-0 h-full bg-zinc-950/95 border-r border-zinc-800/80 flex flex-col items-center justify-start py-3 px-2 z-30 overflow-y-auto scrollbar-none shadow-2xl relative"
+          className="shrink-0 h-full min-h-0 bg-zinc-950/95 border-r border-zinc-800/80 flex flex-col items-center justify-center p-2 z-30 shadow-2xl relative transition-all"
         >
           <PhotoshopToolbar
             activeTool={activeTool}

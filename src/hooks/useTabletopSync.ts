@@ -532,6 +532,41 @@ export function useTabletopSync() {
     );
   }, [applyStateUpdate]);
 
+  // Heal URLs across all tabs and current maps
+  const healMapUrls = useCallback((freshMaps: MapItem[]) => {
+    applyStateUpdate(
+      (prev) => {
+        let changed = false;
+
+        const updateMapArray = (oldMaps: MapItem[]) => {
+          return oldMaps.map((existingMap) => {
+            const freshMap = freshMaps.find((m) => m.name === existingMap.name);
+            if (freshMap && (existingMap.url !== freshMap.url || existingMap.thumbnailUrl !== freshMap.thumbnailUrl)) {
+              changed = true;
+              return { ...existingMap, url: freshMap.url, thumbnailUrl: freshMap.thumbnailUrl || freshMap.url };
+            }
+            return existingMap;
+          });
+        };
+
+        const newMaps = updateMapArray(prev.maps);
+        const newTabs = (prev.tabs || []).map(tab => ({
+          ...tab,
+          maps: updateMapArray(tab.maps || [])
+        }));
+
+        if (!changed) return prev;
+
+        return {
+          ...prev,
+          maps: newMaps,
+          tabs: newTabs
+        };
+      },
+      (s) => ({ maps: s.maps, tabs: s.tabs })
+    );
+  }, [applyStateUpdate]);
+
   // Update maps array or positions
   const setMaps = useCallback((maps: MapItem[], activeMapId?: string | null) => {
     applyStateUpdate(
@@ -768,6 +803,7 @@ export function useTabletopSync() {
     setFog,
     setGrid,
     setMaps,
+    healMapUrls,
     setMapCategories,
     setPlayerBlackout,
     togglePlayerBlackout,

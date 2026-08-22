@@ -84,9 +84,9 @@ export const PhotoshopToolbar: React.FC<Props> = memo(({
   const isFogTool = activeTool === 'fog-reveal' || activeTool === 'fog-conceal';
 
   return (
-    <div className="relative flex flex-col items-center pointer-events-auto select-none">
+    <div className="relative h-full min-h-0 pointer-events-auto select-none flex flex-col justify-center">
       {/* Primary Vertical Photoshop Toolbar */}
-      <div className="flex flex-col items-center bg-zinc-900/95 backdrop-blur-md border border-zinc-800 p-1.5 rounded-2xl shadow-2xl space-y-1">
+      <div className="flex flex-col flex-wrap content-start items-center justify-center bg-zinc-900/95 backdrop-blur-md border border-zinc-800 p-1.5 rounded-2xl shadow-2xl gap-1 max-h-full">
         {/* Navigation & Selection Tools */}
         <button
           onClick={() => onSelectTool('select')}
@@ -125,7 +125,7 @@ export const PhotoshopToolbar: React.FC<Props> = memo(({
           <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
         </button>
 
-        <div className="w-6 h-[1px] bg-zinc-800 my-0.5" />
+        <div className="w-6 h-[1px] bg-zinc-800 " />
 
         {/* Freehand Drawing Tools */}
         <button
@@ -164,7 +164,7 @@ export const PhotoshopToolbar: React.FC<Props> = memo(({
           <Eraser className="w-4 h-4" />
         </button>
 
-        <div className="w-6 h-[1px] bg-zinc-800 my-0.5" />
+        <div className="w-6 h-[1px] bg-zinc-800 " />
 
         {/* AoE / Zone Templates (Circle, Cone, Line, Square) */}
         <button
@@ -215,7 +215,7 @@ export const PhotoshopToolbar: React.FC<Props> = memo(({
           <Square className="w-4 h-4" />
         </button>
 
-        <div className="w-6 h-[1px] bg-zinc-800 my-0.5" />
+        <div className="w-6 h-[1px] bg-zinc-800 " />
 
         {/* Animated Effects (Fire 🔥, Water 💧) */}
         <button
@@ -242,7 +242,7 @@ export const PhotoshopToolbar: React.FC<Props> = memo(({
           <Droplets className="w-4 h-4" />
         </button>
 
-        <div className="w-6 h-[1px] bg-zinc-800 my-0.5" />
+        <div className="w-6 h-[1px] bg-zinc-800 " />
 
         {/* Fog of War Brush Tools */}
         <button
@@ -271,7 +271,7 @@ export const PhotoshopToolbar: React.FC<Props> = memo(({
 
         {onOpenLayersConfig && (
           <>
-            <div className="w-6 h-[1px] bg-zinc-800 my-0.5" />
+            <div className="w-6 h-[1px] bg-zinc-800 " />
             <button
               onClick={onOpenLayersConfig}
               className="p-2 rounded-xl transition-all text-amber-400 hover:text-amber-300 hover:bg-amber-500/15"

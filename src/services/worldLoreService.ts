@@ -1,3 +1,4 @@
+import { writeDataToContentFolder, deleteDataFromContentFolder } from './universalSyncManager';
 import { WorldLoreItem, WorldDefinition, LoreCategory } from '../types/worldLoreTypes';
 
 export const DEFAULT_WORLDS: WorldDefinition[] = [
@@ -411,8 +412,10 @@ class WorldLoreService {
             this.memoryLoreItems.set(item.id, item);
           });
         }
+        return Array.from(this.memoryLoreItems.values());
       } catch (err) {
-        console.info('Tauri lore scan unavailable, trying server API:', err);
+        console.info('Tauri lore scan unavailable or failed:', err);
+        return Array.from(this.memoryLoreItems.values()); // FAST FAIL IN TAURI, do not hit Express!
       }
     }
 
@@ -513,7 +516,7 @@ class WorldLoreService {
     return this.memoryLoreItems.get(id) || null;
   }
 
-  public async saveItem(item: WorldLoreItem): Promise<WorldLoreItem> {
+    public async saveItem(item: WorldLoreItem): Promise<WorldLoreItem> {
     await this.init();
     const updated: WorldLoreItem = {
       ...item,
@@ -535,43 +538,11 @@ class WorldLoreService {
       : 'Generic_Worlds';
 
     const cleanFilename = `lore_${item.category}_${item.id}.json`;
-
-    if (this.isTauriAvailable()) {
-      try {
-        const { invoke } = await import('@tauri-apps/api/core');
-        await invoke('save_lore_item_rust', {
-          loreDir: 'assets/lore',
-          worldFolder,
-          itemJsonStr: JSON.stringify(updated, null, 2),
-          filename: cleanFilename,
-        });
-      } catch (err) {
-        console.warn('Failed to save lore item via Tauri Rust:', err);
-      }
-    }
-
-    // Express backend fallback
-    try {
-      await fetch(this.getApiUrl('/api/lore/save'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ worldId: item.worldId, item: updated }),
-      });
-    } catch (e) {
-      console.info('Backend lore save endpoint offline, persisted to client storage.');
-    }
-
+    await writeDataToContentFolder(['lore', worldFolder], cleanFilename, updated);
     return updated;
   }
 
-  public async addBatchItems(items: WorldLoreItem[]): Promise<void> {
-    await this.init();
-    for (const item of items) {
-      await this.saveItem(item);
-    }
-  }
-
-  public async deleteItem(id: string, worldId?: string): Promise<boolean> {
+    public async deleteItem(id: string, worldId?: string): Promise<boolean> {
     await this.init();
     const item = this.memoryLoreItems.get(id);
     const deleted = this.memoryLoreItems.delete(id);
@@ -590,32 +561,13 @@ class WorldLoreService {
         : 'Generic_Worlds';
 
       const cleanFilename = item ? `lore_${item.category}_${item.id}.json` : `${id}.json`;
-
-      if (this.isTauriAvailable()) {
-        try {
-          const { invoke } = await import('@tauri-apps/api/core');
-          await invoke('delete_lore_item_rust', {
-            loreDir: 'assets/lore',
-            worldFolder,
-            filename: cleanFilename,
-          });
-        } catch (err) {
-          console.info('Tauri delete skipped, trying Express API:', err);
-        }
-      }
-
-      try {
-        await fetch(this.getApiUrl('/api/lore/delete'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ worldId: targetWorldId, itemId: id }),
-        });
-      } catch (e) {
-        console.info('Backend lore delete endpoint offline, deleted from client storage.');
-      }
+      await deleteDataFromContentFolder(['lore', worldFolder], cleanFilename);
     }
     return deleted;
   }
-}
+
+
+
+} 
 
 export const worldLoreService = new WorldLoreService();

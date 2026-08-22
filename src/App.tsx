@@ -31,6 +31,7 @@ export default function App() {
     setFog,
     setGrid,
     setMaps,
+    healMapUrls,
     updateMapItem,
     setLayersConfig,
     updateLayerItem,
@@ -101,6 +102,18 @@ export default function App() {
         if (!session) return;
         // Save to the Map Library Catalog without flooding active canvas session
         mapLibraryCatalog.mergeLibraryMaps(newMaps, categories);
+        
+        // RECONCILE: Heal broken blob URLs or old paths for maps already on the active canvas AND all inactive tabs
+        healMapUrls(newMaps);
+
+        // Heal URLs for Vault Items globally across the system
+        try {
+          if (typeof mapVaultService.reconcileUrls === 'function') {
+            mapVaultService.reconcileUrls(newMaps);
+          }
+        } catch (e) {
+          console.warn('Could not reconcile vault URLs', e);
+        }
 
         if (categories && categories.length > 0) {
           const mergedCats = Array.from(new Set([...(session.mapCategories || []), ...categories]));
@@ -124,7 +137,7 @@ export default function App() {
     });
 
     return () => unsubscribe();
-  }, [session, setMaps, setMapCategories]);
+  }, [session, setMaps, healMapUrls, setMapCategories]);
 
   // Robust route check for standalone player window popup across web and Tauri desktop
   const isStandalonePlayer = tauriWindowManager.isPlayerWindow();
