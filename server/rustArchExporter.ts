@@ -38,7 +38,7 @@ panic = "abort"
 codegen-units = 1
 lto = true
 opt-level = 3
-strip = true
+strip = "debuginfo"
 `,
   },
   {
@@ -487,7 +487,7 @@ pub fn decimate_fog_points(history: &[FogPoint]) -> Vec<FogPoint> {
     filename: 'drawing.rs',
     path: 'src-tauri/src/drawing.rs',
     language: 'rust',
-    description: 'Ramer-Douglas-Peucker vector path reduction and D&D 5e / Pathfinder Spell Template geometry metrics in Rust.',
+    description: 'Ramer-Douglas-Peucker vector path reduction and Universal TTRPG Area / Zone Template geometry metrics in Rust.',
     content: `use crate::types::{Point2D, SpellTemplate};
 use serde::{Deserialize, Serialize};
 

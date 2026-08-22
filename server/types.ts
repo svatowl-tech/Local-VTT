@@ -171,12 +171,17 @@ export interface InitiativeCombatant {
   isHidden?: boolean;
 }
 
+export type InitiativeFormula = 'd20' | 'd10' | '2d6' | '3d6' | 'd100' | 'd6' | 'static';
+export type InitiativeSortDirection = 'desc' | 'asc';
+
 export interface InitiativeEncounterState {
   inCombat: boolean;
   round: number;
   activeTurnIndex: number;
   combatants: InitiativeCombatant[];
   showToPlayers?: boolean;
+  formula?: InitiativeFormula;
+  sortDirection?: InitiativeSortDirection;
 }
 
 export type TabletopLayerId =

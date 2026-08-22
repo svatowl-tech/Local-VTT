@@ -3,6 +3,8 @@ import {
   MonsterTemplate,
   InitiativeCombatant,
   InitiativeEncounterState,
+  InitiativeFormula,
+  InitiativeSortDirection,
 } from '../types';
 import { fetchInitiativeState, updateInitiativeStateServer } from './apiClient';
 
@@ -13,196 +15,183 @@ const BROADCAST_CHANNEL_NAME = 'aethermap_initiative_sync_channel';
 
 export const DEFAULT_PLAYER_DB: PlayerCharacter[] = [
   {
-    id: 'player-valdar',
-    name: 'Вальдар Светоносный',
-    classLevel: 'Паладин 5',
+    id: 'player-warrior',
+    name: 'Вальдар',
+    classLevel: 'Воин / Штурмовик',
     playerOwner: 'Алексей',
-    maxHp: 48,
-    currentHp: 48,
-    ac: 18,
-    initBonus: 1,
-    avatar: '🛡️',
-    notes: 'Клятва Преданности. Защитник отряда.',
-    isPresent: true,
-  },
-  {
-    id: 'player-elara',
-    name: 'Элара Ветрокрылая',
-    classLevel: 'Следопыт 4',
-    playerOwner: 'Мария',
-    maxHp: 34,
-    currentHp: 34,
-    ac: 15,
-    initBonus: 3,
-    avatar: '🏹',
-    notes: 'Стрелок, заклятый враг — гоблиноиды.',
-    isPresent: true,
-  },
-  {
-    id: 'player-magnus',
-    name: 'Магнус Тёмный',
-    classLevel: 'Волшебник 5',
-    playerOwner: 'Дмитрий',
-    maxHp: 28,
-    currentHp: 28,
-    ac: 13,
-    initBonus: 2,
-    avatar: '🔮',
-    notes: 'Школа Воплощения. Любимое заклинание: Огненный шар.',
-    isPresent: true,
-  },
-  {
-    id: 'player-finn',
-    name: 'Финн Хитрый',
-    classLevel: 'Плут 4',
-    playerOwner: 'Антон',
-    maxHp: 31,
-    currentHp: 31,
-    ac: 14,
-    initBonus: 4,
-    avatar: '🗡️',
-    notes: 'Подвох, Вор. Мастер скрытности.',
-    isPresent: true,
-  },
-  {
-    id: 'player-braor',
-    name: 'Браор Ломатель',
-    classLevel: 'Варвар 5',
-    playerOwner: 'Сергей',
-    maxHp: 58,
-    currentHp: 58,
+    maxHp: 45,
+    currentHp: 45,
     ac: 16,
     initBonus: 2,
+    avatar: '🛡️',
+    notes: 'Тяжёлая броня, защита союзников на передовой.',
+    isPresent: true,
+  },
+  {
+    id: 'player-scout',
+    name: 'Элара',
+    classLevel: 'Следопыт / Снайпер',
+    playerOwner: 'Мария',
+    maxHp: 32,
+    currentHp: 32,
+    ac: 14,
+    initBonus: 4,
+    avatar: '🏹',
+    notes: 'Дальний бой, разведка, высокая реакция.',
+    isPresent: true,
+  },
+  {
+    id: 'player-specialist',
+    name: 'Магнус',
+    classLevel: 'Мистик / Техно-специалист',
+    playerOwner: 'Дмитрий',
+    maxHp: 26,
+    currentHp: 26,
+    ac: 12,
+    initBonus: 2,
+    avatar: '🔮',
+    notes: 'Поддержка отряда, зоны поражения, взлом.',
+    isPresent: true,
+  },
+  {
+    id: 'player-infiltrator',
+    name: 'Финн',
+    classLevel: 'Оперативник / Плут',
+    playerOwner: 'Антон',
+    maxHp: 30,
+    currentHp: 30,
+    ac: 14,
+    initBonus: 5,
+    avatar: '🗡️',
+    notes: 'Скрытное проникновение, быстрый удар, ловкость.',
+    isPresent: true,
+  },
+  {
+    id: 'player-heavy',
+    name: 'Браор',
+    classLevel: 'Громила / Тяжеловес',
+    playerOwner: 'Сергей',
+    maxHp: 55,
+    currentHp: 55,
+    ac: 15,
+    initBonus: 1,
     avatar: '🪓',
-    notes: 'Путь Берсерка. Ярость увеличивает урон.',
+    notes: 'Устойчивость к урону, разрушительная мощь.',
     isPresent: false,
   },
 ];
 
 export const DEFAULT_MONSTER_DB: MonsterTemplate[] = [
   {
-    id: 'monster-goblin',
-    name: 'Гоблин',
-    type: 'Гуманоид',
-    maxHp: 7,
-    ac: 15,
+    id: 'monster-minion',
+    name: 'Пехотинец / Бандит',
+    type: 'Обычный противник',
+    maxHp: 12,
+    ac: 12,
     initBonus: 2,
-    cr: 'CR 1/4',
+    cr: 'Ранг 1',
     avatar: '👺',
-    notes: 'Рассредоточенное бегство, проворное сматывание.',
+    notes: 'Базовый стрелок или боец ближнего боя.',
   },
   {
-    id: 'monster-orc',
-    name: 'Орк-воитель',
-    type: 'Гуманоид',
-    maxHp: 15,
-    ac: 13,
-    initBonus: 1,
-    cr: 'CR 1/2',
-    avatar: '👹',
-    notes: 'Агрессия: бонусное движение к врагу.',
-  },
-  {
-    id: 'monster-skeleton',
-    name: 'Скелет',
-    type: 'Нежить',
-    maxHp: 13,
-    ac: 13,
+    id: 'monster-trooper',
+    name: 'Охранник / Силовик',
+    type: 'Элитный боец',
+    maxHp: 24,
+    ac: 14,
     initBonus: 2,
-    cr: 'CR 1/4',
-    avatar: '💀',
-    notes: 'Уязвимость к дробящему урону.',
+    cr: 'Ранг 2',
+    avatar: '👮',
+    notes: 'Экипирован щитом или штурмовым оружием.',
   },
   {
-    id: 'monster-zombie',
-    name: 'Зомби',
-    type: 'Нежить',
-    maxHp: 22,
-    ac: 8,
+    id: 'monster-drone',
+    name: 'Боевой Дрон / Автоматон',
+    type: 'Механизм',
+    maxHp: 18,
+    ac: 15,
+    initBonus: 3,
+    cr: 'Ранг 2',
+    avatar: '🤖',
+    notes: 'Иммунитет к яду, сенсоры ночного видения.',
+  },
+  {
+    id: 'monster-undead',
+    name: 'Зомби / Мутант',
+    type: 'Заражённый / Нежить',
+    maxHp: 28,
+    ac: 10,
     initBonus: -1,
-    cr: 'CR 1/4',
+    cr: 'Ранг 1',
     avatar: '🧟',
-    notes: 'Стойкость нежити: спасбросок телосложения от смерти.',
+    notes: 'Высокая живучесть, невосприимчивость к боли.',
   },
   {
-    id: 'monster-ogr',
-    name: 'Огр',
-    type: 'Гигант',
-    maxHp: 59,
-    ac: 11,
-    initBonus: -1,
-    cr: 'CR 2',
-    avatar: '🗿',
-    notes: 'Палица: 2d8 + 4 дробящего урона.',
-  },
-  {
-    id: 'monster-wolf',
-    name: 'Пещерный Волк',
-    type: 'Зверь',
-    maxHp: 37,
+    id: 'monster-beast',
+    name: 'Хищный Зверь / Чужой',
+    type: 'Опасный хищник',
+    maxHp: 35,
     ac: 13,
-    initBonus: 2,
-    cr: 'CR 1',
+    initBonus: 3,
+    cr: 'Ранг 3',
     avatar: '🐺',
-    notes: 'Стайная тактика, попытка сбить с ног при укусе.',
+    notes: 'Быстрое перемещение, захват цели.',
   },
   {
-    id: 'monster-beholder',
-    name: 'Злобоглаз (Beholder)',
-    type: 'Аберрация',
+    id: 'monster-officer',
+    name: 'Командир / Офицер',
+    type: 'Лидер отряда',
+    maxHp: 55,
+    ac: 16,
+    initBonus: 3,
+    cr: 'Ранг 4',
+    avatar: '🎖️',
+    notes: 'Командные ауры, усиление союзников.',
+  },
+  {
+    id: 'monster-boss',
+    name: 'Супер-Босс / Левиафан',
+    type: 'Главная угроза',
     maxHp: 180,
     ac: 18,
     initBonus: 2,
-    cr: 'CR 13',
-    avatar: '👁️',
-    notes: 'Антимагический конус, 3 луча глазом за раунд.',
-  },
-  {
-    id: 'monster-red-dragon',
-    name: 'Древний Красный Дракон',
-    type: 'Дракон',
-    maxHp: 546,
-    ac: 22,
-    initBonus: 0,
-    cr: 'CR 17',
+    cr: 'Ранг 5 (Босс)',
     avatar: '🐉',
-    notes: 'Огненный дыхательный конус (26d6), легендарные действия.',
-  },
-  {
-    id: 'monster-lich',
-    name: 'Лич',
-    type: 'Нежить',
-    maxHp: 135,
-    ac: 17,
-    initBonus: 3,
-    cr: 'CR 21',
-    avatar: '🧙‍♂️',
-    notes: 'Заклинатель 20 уровня, парализующее касание.',
-  },
-  {
-    id: 'monster-kobold',
-    name: 'Кобольд',
-    type: 'Гуманоид',
-    maxHp: 5,
-    ac: 12,
-    initBonus: 2,
-    cr: 'CR 1/8',
-    avatar: '🦎',
-    notes: 'Чувствительность к солнцу, стайная тактика.',
+    notes: 'Множественные атаки, AoE урон, легендарные реакции.',
   },
 ];
 
-export const POPULAR_CONDITIONS = [
-  'Сбит с ног',
-  'Отравлен',
-  'Оглушен',
-  'Парализован',
-  'Захвачен',
-  'Ослеплен',
-  'Испуган',
-  'Невидимость',
-  'Бессознания',
-  'Горит',
+export interface ConditionPreset {
+  name: string;
+  icon: string;
+  color: string;
+  category: 'status' | 'hazard' | 'buff';
+}
+
+export const POPULAR_CONDITIONS: string[] = [
+  '🩸 Ранен',
+  '💫 Оглушен',
+  '💤 Без сознания',
+  '🛑 Сбит с ног',
+  '👁️ Ослеплен',
+  '☠️ Отравлен',
+  '🔥 Горит',
+  '😱 Паника',
+  '⛓️ Обездвижен',
+  '👻 Скрыт',
+  '🛡️ В укрытии',
+  '⚡ Сбой / Шок',
+  '🧠 Стресс',
+];
+
+export const INITIATIVE_FORMULAS: { id: InitiativeFormula; label: string; description: string }[] = [
+  { id: 'd20', label: '1d20 + бонус', description: 'Классический стандарт (D20)' },
+  { id: 'd10', label: '1d10 + бонус', description: 'Киберпанк / Interlock / WoD' },
+  { id: '2d6', label: '2d6 + бонус', description: 'PbtA / Traveller / Cepheus' },
+  { id: '3d6', label: '3d6 + бонус', description: 'GURPS / Hero System' },
+  { id: 'd100', label: '1d100 + бонус', description: 'Call of Cthulhu / BRP / WH' },
+  { id: 'd6', label: '1d6 + бонус', description: 'Savage Worlds / OSR' },
+  { id: 'static', label: 'Фиксированное (Бонус/Ловкость)', description: 'Без броска костей' },
 ];
 
 class InitiativeEngine {
@@ -215,6 +204,8 @@ class InitiativeEngine {
     activeTurnIndex: 0,
     combatants: [],
     showToPlayers: true,
+    formula: 'd20',
+    sortDirection: 'desc',
   };
 
   private channel: BroadcastChannel | null = null;
@@ -238,7 +229,6 @@ class InitiativeEngine {
           if (event.data.type === 'INITIATIVE_STATE_SYNC') {
             this.applyRemoteState(event.data.payload);
           } else if (event.data.type === 'REQUEST_INITIATIVE_STATE') {
-            // Another window (e.g. 2nd projector window) just opened and asked for state
             this.broadcastState();
           }
         };
@@ -268,7 +258,6 @@ class InitiativeEngine {
   }
 
   public async requestRemoteSync(): Promise<void> {
-    // 1. Instantly ping any open master tabs/windows via BroadcastChannel
     if (this.channel) {
       try {
         this.channel.postMessage({ type: 'REQUEST_INITIATIVE_STATE' });
@@ -277,7 +266,6 @@ class InitiativeEngine {
       }
     }
 
-    // 2. Fetch authoritative state from backend server
     if (!this.isRequesting) {
       this.isRequesting = true;
       try {
@@ -299,22 +287,34 @@ class InitiativeEngine {
     await this.requestRemoteSync();
   }
 
-  public subscribe(listener: InitiativeListener): () => void {
-    this.listeners.add(listener);
-    // Immediately call listener on subscribe to guarantee current data is mounted
-    listener();
-    return () => {
-      this.listeners.delete(listener);
-    };
-  }
+  private applyRemoteState(data: {
+    playerDb?: PlayerCharacter[];
+    monsterDb?: MonsterTemplate[];
+    encounter?: InitiativeEncounterState;
+  }): void {
+    let changed = false;
 
-  private notify(): void {
-    this.saveToStorage();
-    this.broadcastState();
-    this.notifyListenersOnly();
-    
-    // Sync with backend asynchronously
-    updateInitiativeStateServer(this.getState()).catch(() => {});
+    if (data.playerDb && Array.isArray(data.playerDb)) {
+      this.playerDatabase = data.playerDb;
+      changed = true;
+    }
+    if (data.monsterDb && Array.isArray(data.monsterDb)) {
+      this.monsterDatabase = data.monsterDb;
+      changed = true;
+    }
+    if (data.encounter) {
+      this.encounter = {
+        ...data.encounter,
+        formula: data.encounter.formula || 'd20',
+        sortDirection: data.encounter.sortDirection || 'desc',
+      };
+      changed = true;
+    }
+
+    if (changed) {
+      this.saveToStorageLocalOnly();
+      this.notifyListenersOnly();
+    }
   }
 
   private broadcastState(): void {
@@ -322,35 +322,91 @@ class InitiativeEngine {
       try {
         this.channel.postMessage({
           type: 'INITIATIVE_STATE_SYNC',
-          payload: this.getState(),
+          payload: {
+            playerDb: this.playerDatabase,
+            monsterDb: this.monsterDatabase,
+            encounter: this.encounter,
+          },
         });
       } catch (e) {
-        console.warn('Failed to broadcast initiative state', e);
+        // silent
       }
     }
   }
 
-  private applyRemoteState(payload: any): void {
-    if (!payload || !payload.encounter) return;
-    if (Array.isArray(payload.playerDatabase) && payload.playerDatabase.length > 0) {
-      this.playerDatabase = payload.playerDatabase;
+  private saveToStorageLocalOnly(): void {
+    if (typeof window === 'undefined') return;
+    try {
+      const data = {
+        playerDatabase: this.playerDatabase,
+        monsterDatabase: this.monsterDatabase,
+        encounter: this.encounter,
+      };
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+    } catch (e) {
+      console.warn('Failed to save initiative state to localStorage', e);
     }
-    if (Array.isArray(payload.monsterDatabase) && payload.monsterDatabase.length > 0) {
-      this.monsterDatabase = payload.monsterDatabase;
+  }
+
+  private loadFromStorage(): void {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.playerDatabase && Array.isArray(parsed.playerDatabase)) {
+          this.playerDatabase = parsed.playerDatabase;
+        }
+        if (parsed.monsterDatabase && Array.isArray(parsed.monsterDatabase)) {
+          this.monsterDatabase = parsed.monsterDatabase;
+        }
+        if (parsed.encounter) {
+          this.encounter = {
+            ...parsed.encounter,
+            formula: parsed.encounter.formula || 'd20',
+            sortDirection: parsed.encounter.sortDirection || 'desc',
+          };
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to load initiative state from localStorage', e);
     }
-    this.encounter = {
-      inCombat: !!payload.encounter.inCombat,
-      round: payload.encounter.round || 1,
-      activeTurnIndex: payload.encounter.activeTurnIndex || 0,
-      combatants: Array.isArray(payload.encounter.combatants) ? payload.encounter.combatants : [],
-      showToPlayers: payload.encounter.showToPlayers !== undefined ? !!payload.encounter.showToPlayers : true,
-    };
+  }
+
+  private saveToStorage(): void {
+    this.saveToStorageLocalOnly();
+    this.broadcastState();
+
+    // Debounced or direct backend server sync
+    updateInitiativeStateServer({
+      playerDb: this.playerDatabase,
+      monsterDb: this.monsterDatabase,
+      encounter: this.encounter,
+    }).catch(() => {
+      // offline silent
+    });
+  }
+
+  private notify(): void {
     this.saveToStorage();
     this.notifyListenersOnly();
   }
 
   private notifyListenersOnly(): void {
-    this.listeners.forEach((l) => l());
+    this.listeners.forEach((listener) => {
+      try {
+        listener();
+      } catch (err) {
+        console.error('Error in initiative listener', err);
+      }
+    });
+  }
+
+  public subscribe(listener: InitiativeListener): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
   }
 
   public getState() {
@@ -361,117 +417,71 @@ class InitiativeEngine {
     };
   }
 
-  // --- Persistence ---
-  private loadFromStorage(): void {
-    if (typeof window === 'undefined') return;
-    try {
-      const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed.playerDatabase) && parsed.playerDatabase.length > 0) {
-          this.playerDatabase = parsed.playerDatabase;
-        }
-        if (Array.isArray(parsed.monsterDatabase) && parsed.monsterDatabase.length > 0) {
-          this.monsterDatabase = parsed.monsterDatabase;
-        }
-        if (parsed.encounter) {
-          this.encounter = {
-            inCombat: !!parsed.encounter.inCombat,
-            round: parsed.encounter.round || 1,
-            activeTurnIndex: parsed.encounter.activeTurnIndex || 0,
-            combatants: Array.isArray(parsed.encounter.combatants) ? parsed.encounter.combatants : [],
-            showToPlayers: parsed.encounter.showToPlayers !== undefined ? !!parsed.encounter.showToPlayers : true,
-          };
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to load initiative state from localStorage', e);
-    }
+  public getEncounter(): InitiativeEncounterState {
+    return this.encounter;
   }
 
-  private saveToStorage(): void {
-    if (typeof window === 'undefined') return;
-    try {
-      localStorage.setItem(
-        LOCAL_STORAGE_KEY,
-        JSON.stringify({
-          playerDatabase: this.playerDatabase,
-          monsterDatabase: this.monsterDatabase,
-          encounter: this.encounter,
-        })
-      );
-    } catch (e) {
-      console.warn('Failed to save initiative state to localStorage', e);
-    }
-  }
-
-  // --- Player Database Operations ---
-  public togglePlayerPresence(playerId: string): void {
-    this.playerDatabase = this.playerDatabase.map((p) =>
-      p.id === playerId ? { ...p, isPresent: !p.isPresent } : p
-    );
+  // --- Configuration Methods ---
+  public setFormula(formula: InitiativeFormula): void {
+    this.encounter.formula = formula;
     this.notify();
   }
 
-  public addPlayerToDb(data: Omit<PlayerCharacter, 'id'>): PlayerCharacter {
+  public setSortDirection(sortDirection: InitiativeSortDirection): void {
+    this.encounter.sortDirection = sortDirection;
+    this.sortInitiative();
+  }
+
+  // --- Database Operations ---
+  public addPlayerToDb(player: Omit<PlayerCharacter, 'id'>): PlayerCharacter {
     const newPlayer: PlayerCharacter = {
-      ...data,
-      id: `player-custom-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      isPresent: data.isPresent ?? true,
+      ...player,
+      id: `player-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
     };
     this.playerDatabase = [...this.playerDatabase, newPlayer];
     this.notify();
     return newPlayer;
   }
 
-  public updatePlayerInDb(playerId: string, updates: Partial<PlayerCharacter>): void {
-    this.playerDatabase = this.playerDatabase.map((p) =>
-      p.id === playerId ? { ...p, ...updates } : p
-    );
+  public updatePlayerInDb(id: string, updates: Partial<PlayerCharacter>): void {
+    this.playerDatabase = this.playerDatabase.map((p) => (p.id === id ? { ...p, ...updates } : p));
     this.notify();
   }
 
-  public removePlayerFromDb(playerId: string): void {
-    this.playerDatabase = this.playerDatabase.filter((p) => p.id !== playerId);
+  public removePlayerFromDb(id: string): void {
+    this.playerDatabase = this.playerDatabase.filter((p) => p.id !== id);
     this.notify();
   }
 
-  // --- Monster Database Operations ---
-  public addMonsterToDb(data: Omit<MonsterTemplate, 'id'>): MonsterTemplate {
+  public addMonsterToDb(monster: Omit<MonsterTemplate, 'id'>): MonsterTemplate {
     const newMonster: MonsterTemplate = {
-      ...data,
-      id: `monster-custom-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      ...monster,
+      id: `monster-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
     };
     this.monsterDatabase = [...this.monsterDatabase, newMonster];
     this.notify();
     return newMonster;
   }
 
-  public updateMonsterInDb(monsterId: string, updates: Partial<MonsterTemplate>): void {
-    this.monsterDatabase = this.monsterDatabase.map((m) =>
-      m.id === monsterId ? { ...m, ...updates } : m
-    );
+  public updateMonsterInDb(id: string, updates: Partial<MonsterTemplate>): void {
+    this.monsterDatabase = this.monsterDatabase.map((m) => (m.id === id ? { ...m, ...updates } : m));
     this.notify();
   }
 
-  public removeMonsterFromDb(monsterId: string): void {
-    this.monsterDatabase = this.monsterDatabase.filter((m) => m.id !== monsterId);
+  public removeMonsterFromDb(id: string): void {
+    this.monsterDatabase = this.monsterDatabase.filter((m) => m.id !== id);
     this.notify();
   }
 
-  // --- Active Encounter Operations ---
-
-  // Add all players marked as 'isPresent' in DB to active encounter
+  // --- Encounter Operations ---
   public addPresentPlayersToEncounter(): void {
-    const presentPlayers = this.playerDatabase.filter((p) => p.isPresent);
-    
-    // Avoid adding duplicate players already in combat
+    const presentPlayers = this.playerDatabase.filter((p) => p.isPresent !== false);
     const existingEntityIds = new Set(this.encounter.combatants.map((c) => c.entityId));
 
     const newCombatants: InitiativeCombatant[] = presentPlayers
       .filter((p) => !existingEntityIds.has(p.id))
       .map((p) => ({
-        id: `combatant-player-${p.id}-${Date.now()}-${Math.random().toString(36).substring(2, 4)}`,
+        id: `combatant-player-${p.id}`,
         entityId: p.id,
         name: p.name,
         category: 'player',
@@ -482,22 +492,21 @@ class InitiativeEngine {
         ac: p.ac,
         avatar: p.avatar,
         conditions: [],
-        notes: p.classLevel,
+        notes: `${p.classLevel}${p.playerOwner ? ` (${p.playerOwner})` : ''}`,
         isHidden: false,
       }));
 
-    this.encounter.combatants = [...this.encounter.combatants, ...newCombatants];
-    this.notify();
+    if (newCombatants.length > 0) {
+      this.encounter.combatants = [...this.encounter.combatants, ...newCombatants];
+      this.notify();
+    }
   }
 
-  // Add monster(s) to encounter
   public addMonsterToEncounter(monsterId: string, count: number = 1): void {
     const template = this.monsterDatabase.find((m) => m.id === monsterId);
     if (!template) return;
 
     const newCombatants: InitiativeCombatant[] = [];
-
-    // Count existing monsters of same template to number them correctly (e.g., "Гоблин 1", "Гоблин 2")
     const existingCount = this.encounter.combatants.filter(
       (c) => c.entityId === monsterId || c.name.startsWith(template.name)
     ).length;
@@ -527,7 +536,6 @@ class InitiativeEngine {
     this.notify();
   }
 
-  // Add custom ad-hoc combatant
   public addCustomCombatant(data: Omit<InitiativeCombatant, 'id'>): InitiativeCombatant {
     const newCombatant: InitiativeCombatant = {
       ...data,
@@ -581,30 +589,69 @@ class InitiativeEngine {
     this.sortInitiative();
   }
 
+  // --- Dynamic Formula Dice Rolling ---
+  private evaluateFormulaRoll(bonus: number): number {
+    const formula = this.encounter.formula || 'd20';
+    switch (formula) {
+      case 'd20': {
+        const roll = Math.floor(Math.random() * 20) + 1;
+        return roll + bonus;
+      }
+      case 'd10': {
+        const roll = Math.floor(Math.random() * 10) + 1;
+        return roll + bonus;
+      }
+      case '2d6': {
+        const r1 = Math.floor(Math.random() * 6) + 1;
+        const r2 = Math.floor(Math.random() * 6) + 1;
+        return r1 + r2 + bonus;
+      }
+      case '3d6': {
+        const r1 = Math.floor(Math.random() * 6) + 1;
+        const r2 = Math.floor(Math.random() * 6) + 1;
+        const r3 = Math.floor(Math.random() * 6) + 1;
+        return r1 + r2 + r3 + bonus;
+      }
+      case 'd100': {
+        const roll = Math.floor(Math.random() * 100) + 1;
+        return roll + bonus;
+      }
+      case 'd6': {
+        const roll = Math.floor(Math.random() * 6) + 1;
+        return roll + bonus;
+      }
+      case 'static':
+      default:
+        return bonus;
+    }
+  }
+
   public rollInitiativeOne(combatantId: string): void {
     this.encounter.combatants = this.encounter.combatants.map((c) => {
       if (c.id !== combatantId) return c;
-      const d20 = Math.floor(Math.random() * 20) + 1;
-      return { ...c, initiative: d20 + c.initBonus };
+      const result = this.evaluateFormulaRoll(c.initBonus);
+      return { ...c, initiative: result };
     });
     this.sortInitiative();
   }
 
   public rollInitiativeAll(): void {
     this.encounter.combatants = this.encounter.combatants.map((c) => {
-      const d20 = Math.floor(Math.random() * 20) + 1;
-      return { ...c, initiative: d20 + c.initBonus };
+      const result = this.evaluateFormulaRoll(c.initBonus);
+      return { ...c, initiative: result };
     });
     this.sortInitiative();
   }
 
   public sortInitiative(): void {
+    const isAsc = this.encounter.sortDirection === 'asc';
+
     this.encounter.combatants.sort((a, b) => {
       if (b.initiative !== a.initiative) {
-        return b.initiative - a.initiative;
+        return isAsc ? a.initiative - b.initiative : b.initiative - a.initiative;
       }
       // Tie breaker: bonus
-      return b.initBonus - a.initBonus;
+      return isAsc ? a.initBonus - b.initBonus : b.initBonus - a.initBonus;
     });
     this.notify();
   }
@@ -660,6 +707,8 @@ class InitiativeEngine {
       activeTurnIndex: 0,
       combatants: [],
       showToPlayers: true,
+      formula: this.encounter.formula || 'd20',
+      sortDirection: this.encounter.sortDirection || 'desc',
     };
     this.notify();
   }

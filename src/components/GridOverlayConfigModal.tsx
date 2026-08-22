@@ -67,7 +67,7 @@ export const GridOverlayConfigModal: React.FC<Props> = ({
                   : 'bg-zinc-950/60 text-zinc-400 border-zinc-800 hover:border-zinc-700'
               }`}
             >
-              Квадратная (D&D 5e)
+              Квадратная (Square)
             </button>
             <button
               onClick={() => handleChange({ type: 'hex' })}

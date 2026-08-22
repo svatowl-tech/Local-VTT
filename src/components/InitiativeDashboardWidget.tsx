@@ -135,7 +135,7 @@ export const InitiativeDashboardWidget: React.FC<Props> = ({
             <button
               onClick={() => initiativeEngine.rollInitiativeAll()}
               className="p-1.5 text-amber-400 hover:bg-amber-500/20 rounded-lg transition-colors text-xs"
-              title="Бросить d20 всем участникам"
+              title="Автоматически бросить инициативу всем участникам"
             >
               <Dice5 className="w-3.5 h-3.5" />
             </button>
@@ -211,7 +211,7 @@ export const InitiativeDashboardWidget: React.FC<Props> = ({
                                 : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
                             }`}
                           >
-                            {activeCombatant.category === 'player' ? 'Игрок' : 'Монстр'}
+                            {activeCombatant.category === 'player' ? 'Герой' : 'NPC'}
                           </span>
                         </div>
 

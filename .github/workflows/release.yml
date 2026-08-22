@@ -33,7 +33,6 @@ jobs:
           else
             SHORT_SHA=$(git rev-parse --short HEAD)
             TIMESTAMP=$(date +'%Y%m%d%H%M')
-            # Extract version from package.json if present
             PKG_VER=$(node -p "require('./package.json').version || '1.0.0'")
             TAG="v${PKG_VER}-${TIMESTAMP}-${SHORT_SHA}"
           fi
@@ -51,7 +50,7 @@ jobs:
           generate_release_notes: true
 
   build-tauri:
-    name: Build Tauri Binaries (${{ matrix.platform }})
+    name: Build Tauri (${{ matrix.platform }})
     needs: version-and-release
     strategy:
       fail-fast: false
@@ -59,10 +58,13 @@ jobs:
         include:
           - platform: 'windows-latest'
             args: ''
+            target: ''
           - platform: 'macos-latest'
-            args: ''
+            args: '--target universal-apple-darwin'
+            target: 'universal-apple-darwin'
           - platform: 'ubuntu-22.04'
             args: ''
+            target: ''
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -76,6 +78,13 @@ jobs:
 
       - name: Install Rust Stable
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'x86_64-apple-darwin,aarch64-apple-darwin' || '' }}
+
+      - name: Add macOS Universal Rust Targets
+        if: matrix.platform == 'macos-latest'
+        run: |
+          rustup target add x86_64-apple-darwin aarch64-apple-darwin
 
       - name: Rust Cache
         uses: swatinem/rust-cache@v2
@@ -100,26 +109,53 @@ jobs:
           npm run build
 
       - name: Build Tauri Desktop Application
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Apple Developer credentials for signing & notarization (if configured in repo secrets)
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_PATH: ${{ secrets.APPLE_API_KEY_PATH }}
         with:
           tagName: ${{ needs.version-and-release.outputs.release_tag }}
           releaseName: ${{ needs.version-and-release.outputs.release_name }}
           releaseBody: |
             ## 🎮 AetherMap Desktop Release (${{ needs.version-and-release.outputs.release_tag }})
             
-            Автоматическая кроссплатформенная сборка для настольных ролевых игр с проектором и интерактивным столом.
+            Кроссплатформенная настольная система для интерактивных столов и проекторов в настольных ролевых играх (D&D, Cyberpunk, Pathfinder, CoC, GURPS и др.).
             
-            ### 📦 Содержимое релиза:
-            - **Windows**: `.msi` инсталлятор и портативный `.exe`
-            - **macOS**: `.dmg` образ диска и `.app`
-            - **Linux**: `.AppImage` и `.deb` пакеты
+            ### 📦 Доступные файлы для скачивания:
+            - **macOS (Universal 2: Intel + Apple Silicon M1/M2/M3/M4)**: 
+              - `.dmg` образ диска (универсальный для любых Mac)
+              - `.app.tar.gz`
+            - **Windows (x64)**: 
+              - `.msi` инсталлятор
+              - `.exe` портативный исполняемый файл
+            - **Linux (x64)**: 
+              - `.AppImage` портативный файл
+              - `.deb` пакет для Ubuntu/Debian/Mint
             
-            ### ✨ Особенности:
-            - Независимый вывод на второй экран / проектор для игроков
-            - Движок тумана войны (Fog of War) и анимаций стихий на Rust
-            - Поддержка видеокарт (MP4/WebM) и бесшовная единая папка ассетов
+            ---
+            
+            ### 🍎 Инструкция для пользователей macOS:
+            Приложение собрано в формате **Universal 2 Binary** и работает нативно на любых Mac с процессорами **Intel** и **Apple Silicon (M1/M2/M3/M4)**.
+            
+            Если при первом запуске на macOS появляется системное сообщение Gatekeeper:
+            > *"Файл «AetherMap» повреждён и его невозможно открыть"* / *"AetherMap is damaged and can't be opened"*
+            
+            Это стандартная защита macOS Gatekeeper для открытых бесплатных приложений без платного сертификата Apple Developer. Чтобы снять карантин и запустить приложение:
+            1. Переместите **AetherMap** в папку **«Программы» (Applications)**.
+            2. Откройте **Терминал (Terminal)** и выполните команду:
+               ```bash
+               xattr -cr /Applications/AetherMap.app
+               ```
+            3. *Или:* Кликните правой кнопкой мыши (или с зажатой клавишей Control) по иконке приложения в Finder и выберите **«Открыть» (Open)** -> **«Открыть»**.
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}

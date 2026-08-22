@@ -17,7 +17,7 @@ export const DEFAULT_LAYERS_CONFIG = {
     { id: 'grid', name: 'Сетка поля боя', visible: true, locked: false, opacity: 1, order: 30, description: 'Квадратная или гексагональная разметка' },
     { id: 'drawings', name: 'Рисунки и пометки', visible: true, locked: false, opacity: 1, order: 40, description: 'Карандаш, маркеры и рукописные стрелки' },
     { id: 'effects', name: 'Анимированные эффекты', visible: true, locked: false, opacity: 1, order: 50, description: 'Живое пламя, водная гладь, порталы' },
-    { id: 'spells', name: 'Шаблоны заклинаний (AoE)', visible: true, locked: false, opacity: 1, order: 60, description: 'Радиусы, конусы и линии заклинаний' },
+    { id: 'spells', name: 'Шаблоны зон и эффектов (AoE)', visible: true, locked: false, opacity: 1, order: 60, description: 'Радиусы, конусы, линии, секторы и области поражения' },
     { id: 'overhead', name: 'Крыши и навесы (Overhead)', visible: true, locked: false, opacity: 1, order: 70, description: 'Объекты над персонажами под туманом' },
     { id: 'fog', name: 'Туман войны (Fog of War)', visible: true, locked: false, opacity: 1, order: 80, description: 'Динамический туман и зона видимости' },
     { id: 'laser', name: 'Лазерная указка и пинги', visible: true, locked: false, opacity: 1, order: 90, description: 'Целеуказания и сигналы внимания' },

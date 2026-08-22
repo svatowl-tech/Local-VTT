@@ -45,7 +45,7 @@ function perpendicularDistance(point: DrawingPoint, lineStart: DrawingPoint, lin
 }
 
 /**
- * Calculates D&D 5e / Pathfinder Standard Spell Geometry:
+ * Calculates Universal TTRPG Standard Area & Zone Geometry:
  * - Circle: radius in world units (50px = 5ft)
  * - Cone: 53.13° apex angle, length = radius
  * - Line: width (typically 5ft/50px) x length

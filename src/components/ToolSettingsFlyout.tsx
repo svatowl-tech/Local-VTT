@@ -95,13 +95,13 @@ export const ToolSettingsFlyout: React.FC<Props> = memo(({
       case 'eraser':
         return { name: 'Ластик рисования', icon: <Eraser className="w-3.5 h-3.5 text-rose-400" /> };
       case 'spell-circle':
-        return { name: 'Заклинание: Сфера / Радиус', icon: <Circle className="w-3.5 h-3.5 text-cyan-400" /> };
+        return { name: 'Зона: Сфера / Радиус / Аура', icon: <Circle className="w-3.5 h-3.5 text-cyan-400" /> };
       case 'spell-cone':
-        return { name: 'Заклинание: Конус (53°)', icon: <Triangle className="w-3.5 h-3.5 text-cyan-400 rotate-90" /> };
+        return { name: 'Зона: Конус / Сектор', icon: <Triangle className="w-3.5 h-3.5 text-cyan-400 rotate-90" /> };
       case 'spell-line':
-        return { name: 'Заклинание: Линия / Луч', icon: <Minus className="w-3.5 h-3.5 text-cyan-400 rotate-45" /> };
+        return { name: 'Зона: Линия / Луч / Траектория', icon: <Minus className="w-3.5 h-3.5 text-cyan-400 rotate-45" /> };
       case 'spell-square':
-        return { name: 'Заклинание: Куб / Область', icon: <Square className="w-3.5 h-3.5 text-cyan-400" /> };
+        return { name: 'Зона: Куб / Область', icon: <Square className="w-3.5 h-3.5 text-cyan-400" /> };
       case 'effect-fire':
         return { name: 'Анимированный Огонь', icon: <Flame className="w-3.5 h-3.5 text-amber-500 animate-pulse" /> };
       case 'effect-water':
@@ -272,12 +272,12 @@ export const ToolSettingsFlyout: React.FC<Props> = memo(({
           <div className="flex items-center justify-between">
             <span className="text-[11px] text-cyan-400 font-semibold flex items-center space-x-1">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Шаблон AoE</span>
+              <span>Зона поражения / AoE</span>
             </span>
             <button
               onClick={onClearSpellTemplates}
               className="text-[10px] text-zinc-400 hover:text-rose-400 flex items-center space-x-1 px-2 py-0.5 rounded bg-zinc-900 border border-zinc-800 hover:border-rose-900 transition-colors"
-              title="Удалить все шаблоны заклинаний"
+              title="Удалить все зоны и шаблоны эффектов"
             >
               <Trash2 className="w-3 h-3 text-rose-400" />
               <span>Очистить</span>
@@ -287,20 +287,27 @@ export const ToolSettingsFlyout: React.FC<Props> = memo(({
           {/* Spell Size / Radius */}
           <div>
             <div className="flex items-center justify-between text-[11px] text-zinc-400 mb-1">
-              <span>{activeTool === 'spell-cone' ? 'Длина конуса' : 'Размер / Радиус заклинания'}</span>
+              <span>{activeTool === 'spell-cone' ? 'Дальность конуса' : 'Радиус / Размер зоны'}</span>
               <span className="font-mono text-cyan-300 font-bold text-xs">
-                {toolSettings.spellFeetRadius} ft ({Math.round(toolSettings.spellFeetRadius * 0.3)} м)
+                {toolSettings.spellFeetRadius} ft / {Math.round(toolSettings.spellFeetRadius * 0.3)} м ({Math.round(toolSettings.spellFeetRadius / 5)} кл)
               </span>
             </div>
 
             <div className="grid grid-cols-3 gap-1 text-[11px] mb-1.5">
               {(activeTool === 'spell-cone'
                 ? [
-                    { label: '15 ft (Руки)', feet: 15 },
-                    { label: '30 ft (Холод)', feet: 30 },
-                    { label: '60 ft (Дыхание)', feet: 60 },
+                    { label: '3 м / 10 ft', feet: 10 },
+                    { label: '6 м / 20 ft', feet: 20 },
+                    { label: '15 м / 50 ft', feet: 50 },
                   ]
-                : SPELL_RADIUS_PRESETS
+                : [
+                    { label: '3 м / 10 ft', feet: 10 },
+                    { label: '6 м / 20 ft', feet: 20 },
+                    { label: '9 м / 30 ft', feet: 30 },
+                    { label: '12 м / 40 ft', feet: 40 },
+                    { label: '18 м / 60 ft', feet: 60 },
+                    { label: '30 м / 100 ft', feet: 100 },
+                  ]
               ).map((p) => (
                 <button
                   key={p.feet}

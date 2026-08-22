@@ -166,7 +166,7 @@ export const PhotoshopToolbar: React.FC<Props> = memo(({
 
         <div className="w-6 h-[1px] bg-zinc-800 my-0.5" />
 
-        {/* Spell AoE Shapes (Circle, Cone, Line, Square) */}
+        {/* AoE / Zone Templates (Circle, Cone, Line, Square) */}
         <button
           onClick={() => onSelectTool('spell-circle')}
           className={`p-2 rounded-xl transition-all ${
@@ -174,7 +174,7 @@ export const PhotoshopToolbar: React.FC<Props> = memo(({
               ? 'bg-cyan-500 text-zinc-950 font-bold shadow-md scale-105'
               : 'text-zinc-400 hover:text-cyan-400 hover:bg-zinc-800'
           }`}
-          title="Spell Circle / Radius (C)"
+          title="AoE: Круг / Радиус / Аура (C)"
         >
           <Circle className="w-4 h-4" />
         </button>
@@ -186,7 +186,7 @@ export const PhotoshopToolbar: React.FC<Props> = memo(({
               ? 'bg-cyan-500 text-zinc-950 font-bold shadow-md scale-105'
               : 'text-zinc-400 hover:text-cyan-400 hover:bg-zinc-800'
           }`}
-          title="Spell Cone (53° D&D Standard)"
+          title="AoE: Конус / Сектор / Рассеивание"
         >
           <Triangle className="w-4 h-4 rotate-90" />
         </button>
@@ -198,7 +198,7 @@ export const PhotoshopToolbar: React.FC<Props> = memo(({
               ? 'bg-cyan-500 text-zinc-950 font-bold shadow-md scale-105'
               : 'text-zinc-400 hover:text-cyan-400 hover:bg-zinc-800'
           }`}
-          title="Spell Line / Beam"
+          title="AoE: Линия / Луч / Траектория"
         >
           <Minus className="w-4 h-4 rotate-45" />
         </button>
@@ -210,7 +210,7 @@ export const PhotoshopToolbar: React.FC<Props> = memo(({
               ? 'bg-cyan-500 text-zinc-950 font-bold shadow-md scale-105'
               : 'text-zinc-400 hover:text-cyan-400 hover:bg-zinc-800'
           }`}
-          title="Spell Cube / Box (R)"
+          title="AoE: Квадрат / Куб / Область (R)"
         >
           <Square className="w-4 h-4" />
         </button>

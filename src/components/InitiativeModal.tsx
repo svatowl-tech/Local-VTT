@@ -1,17 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { initiativeEngine, POPULAR_CONDITIONS } from '../services/initiativeEngine';
+import {
+  initiativeEngine,
+  POPULAR_CONDITIONS,
+  INITIATIVE_FORMULAS,
+} from '../services/initiativeEngine';
 import {
   PlayerCharacter,
   MonsterTemplate,
   InitiativeCombatant,
   CombatantCategory,
+  InitiativeFormula,
+  InitiativeSortDirection,
 } from '../types';
 import { FloatingWindow } from './FloatingWindow';
 import {
   Swords,
   Shield,
   Skull,
-  UserCheck,
   UserPlus,
   Plus,
   Trash2,
@@ -27,13 +32,10 @@ import {
   Heart,
   ShieldAlert,
   Sparkles,
-  Edit2,
   Check,
-  CheckSquare,
-  Square,
-  Sliders,
   Settings,
-  Users,
+  ArrowDownUp,
+  Sliders,
 } from 'lucide-react';
 
 interface Props {
@@ -46,7 +48,7 @@ interface Props {
 export const InitiativeModal: React.FC<Props> = ({
   isOpen,
   onClose,
-  zIndex = 40,
+  zIndex,
   onFocus,
 }) => {
   const [state, setState] = useState(() => initiativeEngine.getState());
@@ -61,6 +63,10 @@ export const InitiativeModal: React.FC<Props> = ({
 
   // Conditions popup active for combatant
   const [activeConditionsCombatantId, setActiveConditionsCombatantId] = useState<string | null>(null);
+  const [customConditionInput, setCustomConditionInput] = useState<string>('');
+
+  // Rules flyout
+  const [showRulesConfig, setShowRulesConfig] = useState<boolean>(false);
 
   // Forms for creating new Player / Monster
   const [isCreatingPlayer, setIsCreatingPlayer] = useState<boolean>(false);
@@ -74,10 +80,10 @@ export const InitiativeModal: React.FC<Props> = ({
 
   const [isCreatingMonster, setIsCreatingMonster] = useState<boolean>(false);
   const [newMonsterName, setNewMonsterName] = useState<string>('');
-  const [newMonsterType, setNewMonsterType] = useState<string>('Гуманоид');
-  const [newMonsterCr, setNewMonsterCr] = useState<string>('CR 1');
+  const [newMonsterType, setNewMonsterType] = useState<string>('Противник');
+  const [newMonsterCr, setNewMonsterCr] = useState<string>('Ранг 1');
   const [newMonsterHp, setNewMonsterHp] = useState<number>(15);
-  const [newMonsterAc, setNewMonsterAc] = useState<number>(13);
+  const [newMonsterAc, setNewMonsterAc] = useState<number>(12);
   const [newMonsterInitBonus, setNewMonsterInitBonus] = useState<number>(1);
   const [newMonsterAvatar, setNewMonsterAvatar] = useState<string>('👹');
 
@@ -91,7 +97,7 @@ export const InitiativeModal: React.FC<Props> = ({
   if (!isOpen) return null;
 
   const { playerDatabase, monsterDatabase, encounter } = state;
-  const { combatants, inCombat, round, activeTurnIndex } = encounter;
+  const { combatants, inCombat, round, activeTurnIndex, formula = 'd20', sortDirection = 'desc' } = encounter;
 
   const activeCombatant = combatants[activeTurnIndex];
 
@@ -121,7 +127,7 @@ export const InitiativeModal: React.FC<Props> = ({
 
     initiativeEngine.addPlayerToDb({
       name: newPlayerName.trim(),
-      classLevel: newPlayerClass.trim() || 'Персонаж 1',
+      classLevel: newPlayerClass.trim() || 'Герой',
       playerOwner: newPlayerOwner.trim() || 'Игрок',
       maxHp: newPlayerHp,
       currentHp: newPlayerHp,
@@ -144,8 +150,8 @@ export const InitiativeModal: React.FC<Props> = ({
 
     initiativeEngine.addMonsterToDb({
       name: newMonsterName.trim(),
-      type: newMonsterType.trim() || 'Гуманоид',
-      cr: newMonsterCr.trim() || 'CR 1',
+      type: newMonsterType.trim() || 'Противник',
+      cr: newMonsterCr.trim() || 'Ранг 1',
       maxHp: newMonsterHp,
       ac: newMonsterAc,
       initBonus: newMonsterInitBonus,
@@ -173,17 +179,19 @@ export const InitiativeModal: React.FC<Props> = ({
       m.cr.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const currentFormulaObj = INITIATIVE_FORMULAS.find((f) => f.id === formula) || INITIATIVE_FORMULAS[0];
+
   return (
     <FloatingWindow
       id="initiative-controller-panel"
-      title="Контроллер Инициативы"
+      title="Трекер Инициативы и Очереди Ходов"
       isOpen={isOpen}
       onClose={onClose}
       icon={Swords}
       defaultPosition={{ x: 120, y: 70 }}
-      defaultSize={{ width: 880, height: 600 }}
-      minWidth={520}
-      minHeight={400}
+      defaultSize={{ width: 900, height: 620 }}
+      minWidth={540}
+      minHeight={420}
       zIndex={zIndex}
       onFocus={onFocus}
       headerRightActions={
@@ -209,12 +217,12 @@ export const InitiativeModal: React.FC<Props> = ({
             {encounter.showToPlayers !== false ? (
               <>
                 <Eye className="w-3.5 h-3.5 text-amber-400" />
-                <span>Игроки: ВКЛ</span>
+                <span>Экран игроков: ВКЛ</span>
               </>
             ) : (
               <>
                 <EyeOff className="w-3.5 h-3.5 text-zinc-500" />
-                <span>Игроки: ВЫКЛ</span>
+                <span>Экран игроков: ВЫКЛ</span>
               </>
             )}
           </button>
@@ -265,13 +273,27 @@ export const InitiativeModal: React.FC<Props> = ({
           {/* Quick Encounter Action Controls when in Combat tab */}
           {activeTab === 'combat' && (
             <div className="flex items-center space-x-2">
+              {/* Formula & Rules config button */}
+              <button
+                onClick={() => setShowRulesConfig(!showRulesConfig)}
+                className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1 border ${
+                  showRulesConfig
+                    ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50'
+                    : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-zinc-200 hover:bg-zinc-800'
+                }`}
+                title="Настроить формулу броска инициативы и порядок сортировки"
+              >
+                <Sliders className="w-3.5 h-3.5 text-cyan-400" />
+                <span>{currentFormulaObj.label.split(' ')[0]}</span>
+              </button>
+
               <button
                 onClick={() => initiativeEngine.rollInitiativeAll()}
                 className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 hover:scale-105 active:scale-95"
-                title="Автоматически бросить d20 + бонус инициативы всем участникам"
+                title={`Автоматически бросить ${currentFormulaObj.label} всем участникам`}
               >
                 <Dice5 className="w-3.5 h-3.5" />
-                <span>Бросить Всем d20</span>
+                <span>Бросить Всем</span>
               </button>
 
               {!inCombat ? (
@@ -294,6 +316,47 @@ export const InitiativeModal: React.FC<Props> = ({
             </div>
           )}
         </div>
+
+        {/* Dynamic Rules Configuration Banner */}
+        {showRulesConfig && activeTab === 'combat' && (
+          <div className="p-3 bg-zinc-950 border-b border-zinc-800 flex flex-wrap items-center justify-between gap-3 text-xs animate-in fade-in duration-150">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-zinc-400 font-semibold flex items-center space-x-1">
+                <Dice5 className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Формула Инициативы:</span>
+              </span>
+              <div className="flex flex-wrap gap-1">
+                {INITIATIVE_FORMULAS.map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => initiativeEngine.setFormula(f.id)}
+                    className={`px-2 py-1 rounded-lg text-[11px] font-bold border transition-all ${
+                      formula === f.id
+                        ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/60 shadow-sm'
+                        : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-zinc-200'
+                    }`}
+                    title={f.description}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <span className="text-zinc-400 font-semibold flex items-center space-x-1">
+                <ArrowDownUp className="w-3.5 h-3.5 text-amber-400" />
+                <span>Порядок:</span>
+              </span>
+              <button
+                onClick={() => initiativeEngine.setSortDirection(sortDirection === 'desc' ? 'asc' : 'desc')}
+                className="px-2.5 py-1 bg-zinc-900 border border-zinc-800 hover:border-amber-500/50 text-amber-300 rounded-lg text-[11px] font-bold transition-all"
+              >
+                {sortDirection === 'desc' ? 'По убыванию ↓ (Выше = Первее)' : 'По возрастанию ↑ (Ниже = Первее)'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* TAB 1: COMBAT INITIATIVE LIST */}
         {activeTab === 'combat' && (
@@ -335,7 +398,7 @@ export const InitiativeModal: React.FC<Props> = ({
                     onClick={() => initiativeEngine.nextTurn()}
                     className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-xl transition-all text-xs flex items-center space-x-1.5 shadow-lg shadow-amber-500/20 hover:scale-105 active:scale-95"
                   >
-                    <span>Следующий ход</span>
+                    <span>Следующий ход (Пробел)</span>
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -349,9 +412,9 @@ export const InitiativeModal: React.FC<Props> = ({
                   ⚔️
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-zinc-200">Список инициативы пуст</h3>
+                  <h3 className="text-base font-bold text-zinc-200">Список участников пуст</h3>
                   <p className="text-xs text-zinc-400 mt-1 max-w-md mx-auto">
-                    Выберите игроков из базы или добавьте монстров из бестиария, чтобы начать сражение.
+                    Выберите персонажей игроков или добавьте противников / NPC из базы, чтобы сформировать очередь ходов.
                   </p>
                 </div>
                 <button
@@ -403,7 +466,7 @@ export const InitiativeModal: React.FC<Props> = ({
                                 : 'bg-rose-500/20 text-rose-300 border-rose-500/40'
                             }`}
                           >
-                            {isPlayer ? 'Игрок' : 'Монстр'}
+                            {isPlayer ? 'Герой' : 'NPC'}
                           </span>
                         </div>
 
@@ -419,7 +482,7 @@ export const InitiativeModal: React.FC<Props> = ({
                             </h4>
                             {isActive && (
                               <span className="px-1.5 py-0.5 bg-amber-500 text-zinc-950 font-bold rounded text-[10px] animate-pulse">
-                                ХОДИЛ
+                                ХОД
                               </span>
                             )}
                           </div>
@@ -428,75 +491,92 @@ export const InitiativeModal: React.FC<Props> = ({
                       </div>
 
                       {/* Middle Block: Initiative Score & HP Adjuster */}
-                      <div className="flex items-center justify-between sm:justify-end space-x-3 w-full sm:w-auto">
-                        {/* Initiative Input/Roll */}
+                      <div className="flex items-center space-x-4 w-full sm:w-auto justify-between sm:justify-start">
+                        {/* Initiative Controls */}
                         <div className="flex items-center space-x-1.5 bg-zinc-900/90 px-2.5 py-1.5 rounded-xl border border-zinc-800">
-                          <span className="text-[10px] font-medium text-zinc-400">Иниц:</span>
+                          <button
+                            onClick={() => initiativeEngine.rollInitiativeOne(c.id)}
+                            className="text-amber-400 hover:text-amber-300 p-1 hover:bg-zinc-800 rounded transition-colors"
+                            title={`Бросить ${currentFormulaObj.label} для ${c.name}`}
+                          >
+                            <Dice5 className="w-4 h-4" />
+                          </button>
+                          <span className="text-[10px] text-zinc-400 font-semibold">Иниц:</span>
                           <input
                             type="number"
                             value={c.initiative}
                             onChange={(e) =>
                               initiativeEngine.setInitiative(c.id, parseInt(e.target.value) || 0)
                             }
-                            className="w-12 bg-zinc-950 border border-zinc-800 rounded-lg text-center font-mono font-bold text-xs text-amber-300 py-0.5 focus:outline-none focus:border-amber-500"
+                            className="w-12 bg-zinc-950 border border-zinc-700/80 rounded-lg px-1.5 py-0.5 text-center font-mono font-bold text-amber-300 text-xs focus:outline-none focus:border-amber-500"
                           />
-                          <button
-                            onClick={() => initiativeEngine.rollInitiativeOne(c.id)}
-                            className="p-1 hover:bg-amber-500/20 text-amber-400 rounded-lg transition-colors"
-                            title="Перебросить d20"
-                          >
-                            <Dice5 className="w-3.5 h-3.5" />
-                          </button>
                         </div>
 
-                        {/* Armor Class (AC) */}
-                        <div
-                          className="flex items-center space-x-1 bg-zinc-900/90 px-2.5 py-1.5 rounded-xl border border-zinc-800 text-zinc-300 text-xs"
-                          title="Класс Доспеха (AC)"
+                        {/* HP & AC Block */}
+                        <div className="flex items-center space-x-2 bg-zinc-900/90 px-3 py-1.5 rounded-xl border border-zinc-800">
+                          <Heart className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                          <div className="flex items-center space-x-1 text-xs font-mono">
+                            <span className="font-bold text-zinc-100">{c.currentHp}</span>
+                            <span className="text-zinc-500">/</span>
+                            <span className="text-zinc-400">{c.maxHp}</span>
+                          </div>
+
+                          <div className="flex items-center space-x-0.5 pl-1 border-l border-zinc-800">
+                            <button
+                              onClick={() => initiativeEngine.updateHp(c.id, -5)}
+                              className="px-1.5 py-0.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 rounded text-[10px] font-mono font-bold transition-colors"
+                              title="-5 HP"
+                            >
+                              -5
+                            </button>
+                            <button
+                              onClick={() => initiativeEngine.updateHp(c.id, -1)}
+                              className="px-1.5 py-0.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 rounded text-[10px] font-mono font-bold transition-colors"
+                              title="-1 HP"
+                            >
+                              -1
+                            </button>
+                            <button
+                              onClick={() => initiativeEngine.updateHp(c.id, 1)}
+                              className="px-1.5 py-0.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 rounded text-[10px] font-mono font-bold transition-colors"
+                              title="+1 HP"
+                            >
+                              +1
+                            </button>
+                            <button
+                              onClick={() => initiativeEngine.updateHp(c.id, 5)}
+                              className="px-1.5 py-0.5 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 rounded text-[10px] font-mono font-bold transition-colors"
+                              title="+5 HP"
+                            >
+                              +5
+                            </button>
+                          </div>
+
+                          <div className="flex items-center space-x-1 pl-2 border-l border-zinc-800 text-[11px] font-mono text-zinc-400">
+                            <Shield className="w-3 h-3 text-cyan-400" />
+                            <span>{c.ac}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right Block: Condition Tagging, Visibility, Actions */}
+                      <div className="flex items-center space-x-1.5 w-full sm:w-auto justify-end">
+                        {/* Toggle Player Visibility */}
+                        <button
+                          onClick={() =>
+                            initiativeEngine.updateCombatant(c.id, { isHidden: !c.isHidden })
+                          }
+                          className={`p-2 rounded-xl border transition-all ${
+                            c.isHidden
+                              ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                              : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-zinc-200'
+                          }`}
+                          title={c.isHidden ? 'Скрыт от игроков (показать)' : 'Виден игрокам (скрыть)'}
                         >
-                          <Shield className="w-3.5 h-3.5 text-amber-400" />
-                          <span className="font-mono font-bold">{c.ac}</span>
-                        </div>
+                          {c.isHidden ? <EyeOff className="w-3.5 h-3.5 text-rose-400" /> : <Eye className="w-3.5 h-3.5" />}
+                        </button>
 
-                        {/* HP Counter */}
-                        <div className="flex items-center space-x-1.5 bg-zinc-900/90 px-2.5 py-1.5 rounded-xl border border-zinc-800">
-                          <Heart
-                            className={`w-3.5 h-3.5 shrink-0 ${
-                              c.currentHp === 0 ? 'text-zinc-600' : 'text-rose-500 fill-current'
-                            }`}
-                          />
-                          <button
-                            onClick={() => initiativeEngine.updateHp(c.id, -5)}
-                            className="px-1.5 py-0.5 bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-rose-400 rounded text-[10px] font-mono font-bold border border-zinc-800"
-                          >
-                            -5
-                          </button>
-                          <button
-                            onClick={() => initiativeEngine.updateHp(c.id, -1)}
-                            className="px-1.5 py-0.5 bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-rose-400 rounded text-[10px] font-mono font-bold border border-zinc-800"
-                          >
-                            -1
-                          </button>
-
-                          <span className="font-mono font-bold text-xs px-1 text-zinc-100">
-                            {c.currentHp}/{c.maxHp}
-                          </span>
-
-                          <button
-                            onClick={() => initiativeEngine.updateHp(c.id, 1)}
-                            className="px-1.5 py-0.5 bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-emerald-400 rounded text-[10px] font-mono font-bold border border-zinc-800"
-                          >
-                            +1
-                          </button>
-                          <button
-                            onClick={() => initiativeEngine.updateHp(c.id, 5)}
-                            className="px-1.5 py-0.5 bg-zinc-950 hover:bg-zinc-800 text-zinc-400 hover:text-emerald-400 rounded text-[10px] font-mono font-bold border border-zinc-800"
-                          >
-                            +5
-                          </button>
-                        </div>
-
-                        {/* Conditions Toggle Button */}
+                        {/* Conditions Button & Flyout */}
                         <div className="relative">
                           <button
                             onClick={() =>
@@ -504,27 +584,23 @@ export const InitiativeModal: React.FC<Props> = ({
                                 activeConditionsCombatantId === c.id ? null : c.id
                               )
                             }
-                            className={`p-2 rounded-xl border transition-all text-xs flex items-center space-x-1 ${
+                            className={`px-2.5 py-1.5 rounded-xl border text-xs font-semibold flex items-center space-x-1 transition-all ${
                               c.conditions.length > 0
                                 ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                                : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 border-zinc-800'
+                                : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-zinc-200'
                             }`}
-                            title="Состояния / Эффекты"
+                            title="Управление состояниями и эффектами"
                           >
-                            <ShieldAlert className="w-3.5 h-3.5" />
-                            {c.conditions.length > 0 && (
-                              <span className="font-mono font-bold text-[10px]">
-                                {c.conditions.length}
-                              </span>
-                            )}
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span>{c.conditions.length > 0 ? `${c.conditions.length}` : '+Сост.'}</span>
                           </button>
 
                           {/* Conditions Popup Drawer */}
                           {activeConditionsCombatantId === c.id && (
-                            <div className="absolute right-0 top-10 z-30 w-48 bg-zinc-950 border border-zinc-800 rounded-2xl p-2.5 shadow-2xl space-y-1 animate-in fade-in duration-150">
+                            <div className="absolute right-0 top-10 z-30 w-56 bg-zinc-950 border border-zinc-800 rounded-2xl p-2.5 shadow-2xl space-y-2 animate-in fade-in duration-150">
                               <div className="flex items-center justify-between pb-1 border-b border-zinc-800">
-                                <span className="text-[10px] font-bold text-zinc-400">
-                                  Состояния {c.name}
+                                <span className="text-[10px] font-bold text-zinc-300">
+                                  Состояния: {c.name}
                                 </span>
                                 <button
                                   onClick={() => setActiveConditionsCombatantId(null)}
@@ -533,7 +609,36 @@ export const InitiativeModal: React.FC<Props> = ({
                                   <X className="w-3 h-3" />
                                 </button>
                               </div>
-                              <div className="max-h-40 overflow-y-auto space-y-0.5">
+
+                              {/* Custom Condition Add Input */}
+                              <div className="flex items-center space-x-1">
+                                <input
+                                  type="text"
+                                  placeholder="Свое состояние..."
+                                  value={customConditionInput}
+                                  onChange={(e) => setCustomConditionInput(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && customConditionInput.trim()) {
+                                      initiativeEngine.toggleCondition(c.id, customConditionInput.trim());
+                                      setCustomConditionInput('');
+                                    }
+                                  }}
+                                  className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-2 py-1 text-[10px] text-zinc-100 focus:outline-none focus:border-amber-500"
+                                />
+                                <button
+                                  onClick={() => {
+                                    if (customConditionInput.trim()) {
+                                      initiativeEngine.toggleCondition(c.id, customConditionInput.trim());
+                                      setCustomConditionInput('');
+                                    }
+                                  }}
+                                  className="p-1 bg-amber-500 text-zinc-950 rounded-lg font-bold text-[10px]"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                </button>
+                              </div>
+
+                              <div className="max-h-44 overflow-y-auto space-y-0.5 pr-1">
                                 {POPULAR_CONDITIONS.map((cond) => {
                                   const isSelected = c.conditions.includes(cond);
                                   return (
@@ -606,7 +711,7 @@ export const InitiativeModal: React.FC<Props> = ({
                   }`}
                 >
                   <Shield className="w-4 h-4" />
-                  <span>База Игроков ({playerDatabase.length})</span>
+                  <span>Персонажи Героев ({playerDatabase.length})</span>
                 </button>
 
                 <button
@@ -618,7 +723,7 @@ export const InitiativeModal: React.FC<Props> = ({
                   }`}
                 >
                   <Skull className="w-4 h-4" />
-                  <span>База Монстров ({monsterDatabase.length})</span>
+                  <span>Противники и NPC ({monsterDatabase.length})</span>
                 </button>
               </div>
 
@@ -640,14 +745,14 @@ export const InitiativeModal: React.FC<Props> = ({
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="text-xs text-zinc-400">
-                    Отметьте галочками персонажей, присутствующих на текущей игре, и добавьте их в бой.
+                    Отметьте присутствующих персонажей и добавьте их в текущее сражение.
                   </div>
                   <button
                     onClick={handleAddPresentPlayers}
                     className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 shadow-lg shadow-amber-500/20"
                   >
                     <Plus className="w-4 h-4" />
-                    <span>Добавить Выбранных Игроков в Бой</span>
+                    <span>Добавить Выбранных Персонажей в Бой</span>
                   </button>
                 </div>
 
@@ -655,9 +760,13 @@ export const InitiativeModal: React.FC<Props> = ({
                   {filteredPlayers.map((player) => (
                     <div
                       key={player.id}
-                      onClick={() => initiativeEngine.togglePlayerPresence(player.id)}
+                      onClick={() =>
+                        initiativeEngine.updatePlayerInDb(player.id, {
+                          isPresent: player.isPresent === false ? true : false,
+                        })
+                      }
                       className={`p-4 rounded-2xl border cursor-pointer transition-all flex items-center justify-between ${
-                        player.isPresent
+                        player.isPresent !== false
                           ? 'bg-amber-500/10 border-amber-500/80 shadow-md ring-1 ring-amber-500/30'
                           : 'bg-zinc-950/60 border-zinc-800/80 hover:border-zinc-700'
                       }`}
@@ -665,7 +774,7 @@ export const InitiativeModal: React.FC<Props> = ({
                       <div className="flex items-center space-x-3">
                         <div
                           className={`w-6 h-6 rounded-lg border flex items-center justify-center transition-colors ${
-                            player.isPresent
+                            player.isPresent !== false
                               ? 'bg-amber-500 border-amber-400 text-zinc-950'
                               : 'bg-zinc-900 border-zinc-700 text-transparent'
                           }`}
@@ -688,7 +797,7 @@ export const InitiativeModal: React.FC<Props> = ({
                       <div className="text-right text-xs font-mono space-y-0.5">
                         <div className="text-amber-300 font-bold">HP: {player.maxHp}</div>
                         <div className="text-zinc-400">
-                          AC: {player.ac} | Иниц: {player.initBonus >= 0 ? `+${player.initBonus}` : player.initBonus}
+                          Защита: {player.ac} | Иниц: {player.initBonus >= 0 ? `+${player.initBonus}` : player.initBonus}
                         </div>
                       </div>
                     </div>
@@ -701,7 +810,7 @@ export const InitiativeModal: React.FC<Props> = ({
             {dbCategory === 'monster' && (
               <div className="space-y-4">
                 <div className="text-xs text-zinc-400">
-                  Укажите количество монстров каждого типа и нажмите "В бой" для мгновенного добавления в инициативу.
+                  Укажите необходимое количество NPC/противников и добавьте их в сражение.
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -711,52 +820,61 @@ export const InitiativeModal: React.FC<Props> = ({
                     return (
                       <div
                         key={monster.id}
-                        className="p-4 bg-zinc-950/80 border border-zinc-800/80 hover:border-rose-500/40 rounded-2xl transition-all flex items-center justify-between gap-3"
+                        className="p-4 bg-zinc-950/80 border border-zinc-800 rounded-2xl flex flex-col justify-between space-y-3 hover:border-rose-500/40 transition-all"
                       >
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-2xl">
-                            {monster.avatar}
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-2xl">
+                              {monster.avatar}
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-sm text-zinc-100">{monster.name}</h4>
+                              <p className="text-xs text-zinc-400">
+                                {monster.type} • <span className="text-rose-400 font-semibold">{monster.cr}</span>
+                              </p>
+                            </div>
                           </div>
 
-                          <div>
-                            <div className="flex items-center space-x-2">
-                              <h4 className="font-bold text-sm text-zinc-100">{monster.name}</h4>
-                              <span className="px-1.5 py-0.2 bg-rose-500/20 text-rose-300 border border-rose-500/30 rounded font-mono text-[10px] font-bold">
-                                {monster.cr}
-                              </span>
-                            </div>
-                            <p className="text-xs text-zinc-400">
-                              {monster.type} • HP: {monster.maxHp} • AC: {monster.ac}
-                            </p>
+                          <div className="text-right text-xs font-mono space-y-0.5">
+                            <div className="text-rose-400 font-bold">HP: {monster.maxHp}</div>
+                            <div className="text-zinc-400">Защита: {monster.ac}</div>
                           </div>
                         </div>
 
-                        {/* Quantity & Add Button */}
-                        <div className="flex items-center space-x-2 shrink-0">
-                          <div className="flex items-center space-x-1 bg-zinc-900 px-2 py-1 rounded-xl border border-zinc-800">
-                            <button
-                              onClick={() => setMonsterQuantity(monster.id, qty - 1)}
-                              className="w-5 h-5 bg-zinc-950 hover:bg-zinc-800 text-zinc-300 rounded font-mono font-bold text-xs flex items-center justify-center"
-                            >
-                              -
-                            </button>
-                            <span className="w-6 text-center font-mono font-bold text-xs text-zinc-100">
-                              {qty}
-                            </span>
-                            <button
-                              onClick={() => setMonsterQuantity(monster.id, qty + 1)}
-                              className="w-5 h-5 bg-zinc-950 hover:bg-zinc-800 text-zinc-300 rounded font-mono font-bold text-xs flex items-center justify-center"
-                            >
-                              +
-                            </button>
+                        {monster.notes && (
+                          <p className="text-[11px] text-zinc-500 line-clamp-1 italic">{monster.notes}</p>
+                        )}
+
+                        <div className="flex items-center justify-between pt-2 border-t border-zinc-900">
+                          {/* Quantity Selector */}
+                          <div className="flex items-center space-x-1.5">
+                            <span className="text-xs text-zinc-400">Кол-во:</span>
+                            <div className="flex items-center space-x-1 bg-zinc-900 border border-zinc-800 rounded-xl p-0.5">
+                              <button
+                                onClick={() => setMonsterQuantity(monster.id, qty - 1)}
+                                className="w-6 h-6 rounded-lg bg-zinc-800 text-zinc-300 hover:text-white flex items-center justify-center text-xs font-bold"
+                              >
+                                -
+                              </button>
+                              <span className="w-6 text-center font-mono text-xs font-bold text-zinc-100">
+                                {qty}
+                              </span>
+                              <button
+                                onClick={() => setMonsterQuantity(monster.id, qty + 1)}
+                                className="w-6 h-6 rounded-lg bg-zinc-800 text-zinc-300 hover:text-white flex items-center justify-center text-xs font-bold"
+                              >
+                                +
+                              </button>
+                            </div>
                           </div>
 
+                          {/* Add button */}
                           <button
                             onClick={() => handleAddMonster(monster.id)}
-                            className="px-3 py-1.5 bg-rose-500 hover:bg-rose-400 text-zinc-950 font-bold rounded-xl text-xs transition-all flex items-center space-x-1 shadow-md shadow-rose-500/20"
+                            className="px-3.5 py-1.5 bg-rose-500 hover:bg-rose-400 text-zinc-950 rounded-xl text-xs font-bold transition-all flex items-center space-x-1 shadow-md shadow-rose-500/20"
                           >
                             <Plus className="w-3.5 h-3.5" />
-                            <span>В бой</span>
+                            <span>Добавить {qty > 1 ? `(${qty})` : ''}</span>
                           </button>
                         </div>
                       </div>
@@ -768,31 +886,34 @@ export const InitiativeModal: React.FC<Props> = ({
           </div>
         )}
 
-        {/* TAB 3: MANAGE DATABASES & CREATE CUSTOMS */}
+        {/* TAB 3: MANAGE DATABASES (CREATE/EDIT/DELETE) */}
         {activeTab === 'manage-db' && (
           <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-6 bg-zinc-900/30">
-            {/* Action Bar */}
-            <div className="flex items-center justify-between">
+            {/* Category Selector */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-zinc-900/80 p-3.5 rounded-2xl border border-zinc-800">
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => setDbCategory('player')}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-2 ${
                     dbCategory === 'player'
-                      ? 'bg-amber-500 text-zinc-950'
-                      : 'bg-zinc-900 text-zinc-400 border border-zinc-800'
+                      ? 'bg-amber-500 text-zinc-950 shadow-md'
+                      : 'bg-zinc-950 text-zinc-400 hover:text-zinc-200 border border-zinc-800'
                   }`}
                 >
-                  Управление Игроками
+                  <Shield className="w-4 h-4" />
+                  <span>База Героев ({playerDatabase.length})</span>
                 </button>
+
                 <button
                   onClick={() => setDbCategory('monster')}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-2 ${
                     dbCategory === 'monster'
-                      ? 'bg-rose-500 text-zinc-950'
-                      : 'bg-zinc-900 text-zinc-400 border border-zinc-800'
+                      ? 'bg-rose-500 text-zinc-950 shadow-md'
+                      : 'bg-zinc-950 text-zinc-400 hover:text-zinc-200 border border-zinc-800'
                   }`}
                 >
-                  Управление Монстрами
+                  <Skull className="w-4 h-4" />
+                  <span>База Противников ({monsterDatabase.length})</span>
                 </button>
               </div>
 
@@ -810,7 +931,7 @@ export const InitiativeModal: React.FC<Props> = ({
                   className="px-3.5 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 rounded-xl text-xs font-bold transition-all flex items-center space-x-1"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>Создать Монстра</span>
+                  <span>Создать NPC / Противника</span>
                 </button>
               )}
             </div>
@@ -821,13 +942,13 @@ export const InitiativeModal: React.FC<Props> = ({
                 onSubmit={handleSavePlayer}
                 className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-3 animate-in fade-in duration-150 text-xs"
               >
-                <h4 className="font-bold text-amber-300 text-xs">Новый Персонаж Игрока</h4>
+                <h4 className="font-bold text-amber-300 text-xs">Новый Персонаж</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-zinc-400 text-[10px] mb-1">Имя Персонажа</label>
                     <input
                       type="text"
-                      placeholder="Арагорн"
+                      placeholder="Арагорн / Джон Доу"
                       value={newPlayerName}
                       onChange={(e) => setNewPlayerName(e.target.value)}
                       className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-1.5 text-zinc-100 focus:outline-none focus:border-amber-500"
@@ -835,10 +956,10 @@ export const InitiativeModal: React.FC<Props> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-zinc-400 text-[10px] mb-1">Класс / Уровень</label>
+                    <label className="block text-zinc-400 text-[10px] mb-1">Класс / Роль / Концепт</label>
                     <input
                       type="text"
-                      placeholder="Следопыт 5"
+                      placeholder="Следопыт / Снайпер / Пилот"
                       value={newPlayerClass}
                       onChange={(e) => setNewPlayerClass(e.target.value)}
                       className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-1.5 text-zinc-100 focus:outline-none focus:border-amber-500"
@@ -867,7 +988,7 @@ export const InitiativeModal: React.FC<Props> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-zinc-400 text-[10px] mb-1">AC (Доспех)</label>
+                    <label className="block text-zinc-400 text-[10px] mb-1">Защита / AC</label>
                     <input
                       type="number"
                       value={newPlayerAc}
@@ -919,13 +1040,13 @@ export const InitiativeModal: React.FC<Props> = ({
                 onSubmit={handleSaveMonster}
                 className="p-4 bg-zinc-900 border border-zinc-800 rounded-2xl space-y-3 animate-in fade-in duration-150 text-xs"
               >
-                <h4 className="font-bold text-rose-300 text-xs">Новый Монстр в Бестиарий</h4>
+                <h4 className="font-bold text-rose-300 text-xs">Новый NPC / Противник в Базу</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-zinc-400 text-[10px] mb-1">Название Монстра</label>
+                    <label className="block text-zinc-400 text-[10px] mb-1">Название</label>
                     <input
                       type="text"
-                      placeholder="Темный Элементаль"
+                      placeholder="Охранник / Дрон / Элементаль"
                       value={newMonsterName}
                       onChange={(e) => setNewMonsterName(e.target.value)}
                       className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-1.5 text-zinc-100 focus:outline-none focus:border-rose-500"
@@ -933,20 +1054,20 @@ export const InitiativeModal: React.FC<Props> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-zinc-400 text-[10px] mb-1">Тип Существа</label>
+                    <label className="block text-zinc-400 text-[10px] mb-1">Категория / Тип</label>
                     <input
                       type="text"
-                      placeholder="Элементаль"
+                      placeholder="Пехота / Механизм / Мутант"
                       value={newMonsterType}
                       onChange={(e) => setNewMonsterType(e.target.value)}
                       className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-1.5 text-zinc-100 focus:outline-none focus:border-rose-500"
                     />
                   </div>
                   <div>
-                    <label className="block text-zinc-400 text-[10px] mb-1">Опасность (CR)</label>
+                    <label className="block text-zinc-400 text-[10px] mb-1">Ранг / Уровень / CR</label>
                     <input
                       type="text"
-                      placeholder="CR 5"
+                      placeholder="Ранг 2 / Уровень 3"
                       value={newMonsterCr}
                       onChange={(e) => setNewMonsterCr(e.target.value)}
                       className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3 py-1.5 text-zinc-100 focus:outline-none focus:border-rose-500"
@@ -965,7 +1086,7 @@ export const InitiativeModal: React.FC<Props> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-zinc-400 text-[10px] mb-1">AC (Доспех)</label>
+                    <label className="block text-zinc-400 text-[10px] mb-1">Защита / AC</label>
                     <input
                       type="number"
                       value={newMonsterAc}
@@ -1005,7 +1126,7 @@ export const InitiativeModal: React.FC<Props> = ({
                     type="submit"
                     className="px-4 py-1.5 bg-rose-500 hover:bg-rose-400 text-zinc-950 font-bold rounded-xl"
                   >
-                    Сохранить в бестиарий
+                    Сохранить в базу
                   </button>
                 </div>
               </form>
@@ -1031,7 +1152,7 @@ export const InitiativeModal: React.FC<Props> = ({
 
                       <div className="flex items-center space-x-3">
                         <span className="text-xs font-mono text-amber-300 font-bold">
-                          HP: {p.maxHp} | AC: {p.ac}
+                          HP: {p.maxHp} | Защита: {p.ac} | Иниц: {p.initBonus >= 0 ? `+${p.initBonus}` : p.initBonus}
                         </span>
                         <button
                           onClick={() => initiativeEngine.removePlayerFromDb(p.id)}
@@ -1060,12 +1181,12 @@ export const InitiativeModal: React.FC<Props> = ({
 
                       <div className="flex items-center space-x-3">
                         <span className="text-xs font-mono text-rose-300 font-bold">
-                          HP: {m.maxHp} | AC: {m.ac}
+                          HP: {m.maxHp} | Защита: {m.ac} | Иниц: {m.initBonus >= 0 ? `+${m.initBonus}` : m.initBonus}
                         </span>
                         <button
                           onClick={() => initiativeEngine.removeMonsterFromDb(m.id)}
                           className="p-1.5 text-zinc-600 hover:text-rose-400 hover:bg-zinc-900 rounded-xl transition-colors"
-                          title="Удалить из бестиария"
+                          title="Удалить из базы"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>

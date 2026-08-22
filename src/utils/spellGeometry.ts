@@ -2,7 +2,7 @@ import { SpellTemplate, SpellShapeType } from '../types';
 
 /**
  * Calculates cone geometry for SVG rendering and handles.
- * D&D 5e standard: 53.13 degree cone apex (width at distance D equals D).
+ * Universal TTRPG / Tabletop cone geometry with customizable apex angle.
  */
 export function getConeGeometry(
   x: number,

@@ -44,7 +44,7 @@ export interface SpatialQueryResult {
  */
 export const spatialDiceService = {
   /**
-   * Fast Dice Roll Evaluation (D&D 5e / Pathfinder standard)
+   * Fast Dice Roll Evaluation (Universal TTRPG standard)
    */
   async roll(expression: string, modifier: number = 0): Promise<DiceRollResult> {
     try {
