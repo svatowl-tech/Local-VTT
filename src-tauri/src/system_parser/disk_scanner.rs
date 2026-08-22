@@ -1,6 +1,6 @@
 use super::types::{ImportResult, SystemDataItemRust, UniversalParsedEntity};
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::UNIX_EPOCH;
 
 const SUPPORTED_EXTS: &[&str] = &[

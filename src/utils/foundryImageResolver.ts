@@ -1,3 +1,5 @@
+import { resolveApiUrl } from './apiUrlHelper';
+
 /**
  * Helper to safely resolve and return URLs for Foundry VTT graphics (images, tokens, icons)
  * Handles both web-hosted absolute URLs, base64 data URIs, and local filesystem relative paths
@@ -19,8 +21,8 @@ export function resolveFoundryImageUrl(img: string | undefined, systemId?: strin
   
   // If the path already has a systemId or is relative to the systems dir
   if (systemId && !cleanPath.startsWith('systems/') && !cleanPath.startsWith('icons/')) {
-    return `/api/systems/asset?path=${encodeURIComponent(systemId + '/' + cleanPath)}`;
+    return resolveApiUrl(`/api/systems/asset?path=${encodeURIComponent(systemId + '/' + cleanPath)}`);
   }
   
-  return `/api/systems/asset?path=${encodeURIComponent(cleanPath)}`;
+  return resolveApiUrl(`/api/systems/asset?path=${encodeURIComponent(cleanPath)}`);
 }

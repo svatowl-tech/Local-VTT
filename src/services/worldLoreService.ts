@@ -301,6 +301,7 @@ const INITIAL_LORE_ITEMS: WorldLoreItem[] = [
 class WorldLoreService {
   private memoryLoreItems: Map<string, WorldLoreItem> = new Map();
   private initialized = false;
+  private initPromise: Promise<void> | null = null;
 
   private isTauriAvailable(): boolean {
     return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -308,31 +309,36 @@ class WorldLoreService {
 
   public async init(): Promise<void> {
     if (this.initialized) return;
+    if (this.initPromise) return this.initPromise;
 
-    // Load initial defaults
-    INITIAL_LORE_ITEMS.forEach((item) => this.memoryLoreItems.set(item.id, item));
+    this.initPromise = (async () => {
+      // Load initial defaults
+      INITIAL_LORE_ITEMS.forEach((item) => this.memoryLoreItems.set(item.id, item));
 
-    try {
-      // Sync defaults from localStorage fallback
-      const raw = localStorage.getItem('aethermap_world_lore_items_v1');
-      if (raw) {
-        const stored = JSON.parse(raw);
-        if (stored && Array.isArray(stored) && stored.length > 0) {
-          stored.forEach((item: WorldLoreItem) => this.memoryLoreItems.set(item.id, item));
+      try {
+        // Sync defaults from localStorage fallback
+        const raw = localStorage.getItem('aethermap_world_lore_items_v1');
+        if (raw) {
+          const stored = JSON.parse(raw);
+          if (stored && Array.isArray(stored) && stored.length > 0) {
+            stored.forEach((item: WorldLoreItem) => this.memoryLoreItems.set(item.id, item));
+          }
         }
+      } catch (e) {
+        console.warn('Failed to load lore items from localStorage:', e);
       }
-    } catch (e) {
-      console.warn('Failed to load lore items from localStorage:', e);
-    }
 
-    // Attempt to load active world lore from disk
-    try {
-      await this.scanAndSyncFolder('dnd5e_faerun', false);
-    } catch (e) {
-      console.warn('On-disk scan during init skipped:', e);
-    }
+      // Attempt to load active world lore from disk
+      try {
+        await this.scanAndSyncFolder('dnd5e_faerun', false);
+      } catch (e) {
+        console.warn('On-disk scan during init skipped:', e);
+      }
 
-    this.initialized = true;
+      this.initialized = true;
+    })();
+
+    return this.initPromise;
   }
 
   private async persist(): Promise<void> {

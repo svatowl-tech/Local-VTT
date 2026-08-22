@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
+import { resolveApiUrl } from './utils/apiUrlHelper.ts';
 import './index.css';
 
 // Prevent uncaught errors from unhandled asynchronous promises
@@ -10,6 +11,30 @@ if (typeof window !== 'undefined') {
     console.warn('Unhandled rejection handled safely:', event.reason);
     event.preventDefault();
   });
+
+  // Global window.fetch wrapper to automatically route relative API endpoints to local Express server
+  const originalFetch = window.fetch;
+  try {
+    Object.defineProperty(window, 'fetch', {
+      value: function (input: any, init: any) {
+        if (typeof input === 'string') {
+          return originalFetch(resolveApiUrl(input), init);
+        } else if (input instanceof URL) {
+          return originalFetch(new URL(resolveApiUrl(input.href)), init);
+        } else if (input && typeof input === 'object' && 'url' in input) {
+          const targetUrl = resolveApiUrl((input as any).url);
+          const requestCopy = new Request(targetUrl, input as RequestInit);
+          return originalFetch(requestCopy, init);
+        }
+        return originalFetch(input, init);
+      },
+      configurable: true,
+      writable: true,
+      enumerable: true
+    });
+  } catch (err) {
+    console.warn('Failed to define safe global fetch:', err);
+  }
 }
 
 createRoot(document.getElementById('root')!).render(

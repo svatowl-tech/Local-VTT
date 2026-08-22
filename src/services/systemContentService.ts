@@ -7,6 +7,81 @@ import {
 } from '../types/systemDataTypes';
 import { rustSystemParserService } from './rustSystemParserService';
 
+const BUILTIN_SYSTEMS_FALLBACK: TTRPGSystemManifest[] = [
+  {
+    id: 'dnd5e',
+    name: 'Dungeons & Dragons 5e',
+    shortName: 'D&D 5e',
+    folderName: 'dnd5e',
+    description: 'Система правил 5-й редакции D&D. Монстры, заклинания, расы, классы, предметы и правила SRD.',
+    icon: 'swords',
+    color: 'rose',
+    categories: ['monsters', 'spells', 'races', 'classes', 'items', 'rules', 'lore'],
+    totalFiles: 3,
+    categoryStats: { monsters: 1, spells: 1, races: 1, classes: 0, items: 0, rules: 0, lore: 0 }
+  },
+  {
+    id: 'pathfinder2e',
+    name: 'Pathfinder 2e',
+    shortName: 'PF2e',
+    folderName: 'pathfinder2e',
+    description: 'Система правил Pathfinder Второй редакции. Бестиарий, заклинания, родословные, черты и экипировка.',
+    icon: 'shield',
+    color: 'amber',
+    categories: ['bestiary', 'spells', 'ancestries', 'classes', 'feats', 'items', 'rules'],
+    totalFiles: 2,
+    categoryStats: { bestiary: 1, spells: 1 }
+  },
+  {
+    id: 'cyberpunk',
+    name: 'Cyberpunk RED / 2020',
+    shortName: 'Cyberpunk',
+    folderName: 'cyberpunk',
+    description: 'Мрачное будущее, киберимпланты, оружие, роли фиксеров, соло, нетраннеров и боевые правила.',
+    icon: 'zap',
+    color: 'cyan',
+    categories: ['cyberware', 'roles', 'weapons', 'netrunning', 'enemies', 'gear', 'rules'],
+    totalFiles: 2,
+    categoryStats: { cyberware: 1, weapons: 1 }
+  },
+  {
+    id: 'gurps',
+    name: 'GURPS 4th Edition',
+    shortName: 'GURPS',
+    folderName: 'gurps',
+    description: 'Универсальная бесклассовая система GURPS 4e. Преимущества, недостатки, навыки, снаряжение и шаблоны.',
+    icon: 'book',
+    color: 'emerald',
+    categories: ['advantages', 'disadvantages', 'skills', 'equipment', 'templates', 'rules'],
+    totalFiles: 1,
+    categoryStats: { advantages: 1 }
+  },
+  {
+    id: 'coc',
+    name: 'Call of Cthulhu 7e',
+    shortName: 'CoC 7e',
+    folderName: 'coc',
+    description: 'Зов Ктулху 7-я редакция. Детективы, чудовища мифов Лавкрафта, заклинания, проверки рассудка и профессии.',
+    icon: 'skull',
+    color: 'purple',
+    categories: ['investigators', 'monsters', 'spells', 'occupations', 'tomes', 'rules'],
+    totalFiles: 1,
+    categoryStats: { monsters: 1 }
+  },
+  {
+    id: 'lore',
+    name: 'Roleplaying Systems Lore',
+    shortName: 'Lore & Worlds',
+    folderName: 'lore',
+    description: 'База знаний лора миров, географии, фракций, НИП и хроник истории TTRPG сеттингов.',
+    icon: 'globe',
+    color: 'amber',
+    categories: ['Worlds', 'Settlements', 'Factions', 'NPCs', 'Articles'],
+    totalFiles: 1,
+    categoryStats: { Worlds: 1 }
+  }
+];
+
 class SystemContentService {
   private systems: TTRPGSystemManifest[] = [];
   private activeSystemId: string = 'dnd5e';
@@ -74,7 +149,30 @@ class SystemContentService {
       return data;
     } catch (err) {
       console.warn('Could not fetch systems from server, using fallback local detection:', err);
-      return null;
+      
+      // Load local fallback presets
+      this.systems = BUILTIN_SYSTEMS_FALLBACK;
+      this.lastFetched = Date.now();
+
+      // Try scanning system directory via Tauri if available
+      if (rustSystemParserService.isRustAvailable()) {
+        try {
+          const items = await rustSystemParserService.scanSystemDirectory('assets/systems', this.activeSystemId);
+          this.cachedItems = items || [];
+        } catch (e) {
+          console.warn('Tauri native directory scan during fallback failed:', e);
+        }
+      }
+
+      this.notify();
+
+      return {
+        systems: this.systems,
+        activeSystemId: this.activeSystemId,
+        totalSystemsCount: this.systems.length,
+        totalSystemFilesCount: this.cachedItems.length,
+        lastScannedAt: Date.now(),
+      };
     } finally {
       this.isLoading = false;
       this.notify();
@@ -104,6 +202,18 @@ class SystemContentService {
       return [];
     } catch (err) {
       console.warn(`Could not fetch items for system ${this.activeSystemId}:`, err);
+      
+      // Fallback to Tauri native scanning
+      if (rustSystemParserService.isRustAvailable()) {
+        try {
+          const items = await rustSystemParserService.scanSystemDirectory('assets/systems', this.activeSystemId);
+          this.cachedItems = items || [];
+          this.notify();
+          return this.cachedItems;
+        } catch (e) {
+          console.warn('Tauri disk scan fallback failed:', e);
+        }
+      }
       return [];
     }
   }

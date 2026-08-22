@@ -1,7 +1,7 @@
 use crate::system_parser::types::{
     NormalizedStats, UniversalParseResult, UniversalParsedEntity,
 };
-use serde::{Deserialize, Serialize};
+// use serde::{Deserialize, Serialize}; // removed unused imports
 use std::collections::HashMap;
 
 /// Rust High-Performance Lore & World Document Parser
@@ -14,7 +14,7 @@ pub fn parse_lore_and_worlds_raw(
     target_system_id: Option<&str>,
 ) -> UniversalParseResult {
     let mut entities: Vec<UniversalParsedEntity> = Vec::new();
-    let mut errors: Vec<String> = Vec::new();
+    let errors: Vec<String> = Vec::new();
     let mut warnings: Vec<String> = Vec::new();
 
     let fname = filename.unwrap_or("document.txt");
@@ -265,7 +265,7 @@ fn parse_json_lore_and_rules(
 
 fn parse_wikitext_document(
     raw_data: &str,
-    fname: &str,
+    _fname: &str,
     sys_id: &str,
     world_id: &str,
 ) -> Vec<UniversalParsedEntity> {
@@ -346,7 +346,7 @@ fn clean_wikitext_markup(raw: &str) -> String {
 
 fn parse_text_sections_into_lore_and_rules(
     raw_data: &str,
-    fname: &str,
+    _fname: &str,
     sys_id: &str,
     world_id: &str,
 ) -> Vec<UniversalParsedEntity> {

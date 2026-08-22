@@ -41,6 +41,7 @@ import {
   saveSessionSnapshotToDisk,
   parseUploadedDirectoryFiles,
 } from '../services/unifiedAssetFolderService';
+import { checkIsTauri } from '../utils/apiUrlHelper';
 import { mapLibraryCatalog } from '../services/mapLibraryCatalog';
 import { audioEngine } from '../services/audioEngine';
 import { diskAssetAutoSync, DiskSyncState } from '../services/diskAssetAutoSync';
@@ -82,6 +83,10 @@ export const UnifiedAssetFolderModal: React.FC<Props> = ({
   const [scanProgress, setScanProgress] = useState<string>('');
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'info' | 'error' } | null>(null);
 
+  // Tauri custom path state
+  const [tauriPath, setTauriPath] = useState<string>(() => localStorage.getItem('aethermap_tauri_folder_path') || 'assets');
+  const [showTauriPathInput, setShowTauriPathInput] = useState<boolean>(false);
+
   // Universal Data Parser & Lore Management State
   const [isParserOpen, setIsParserOpen] = useState<boolean>(false);
   const [selectedLoreWorldId, setSelectedLoreWorldId] = useState<string>('dnd5e_faerun');
@@ -119,6 +124,11 @@ export const UnifiedAssetFolderModal: React.FC<Props> = ({
   }, []);
 
   const handlePickDirectory = async () => {
+    if (checkIsTauri()) {
+      setShowTauriPathInput(true);
+      return;
+    }
+
     try {
       setLoading(true);
       setScanProgress('Открытие проводника папок...');
@@ -917,6 +927,68 @@ export const UnifiedAssetFolderModal: React.FC<Props> = ({
             await diskAssetAutoSync.manualSync();
           }}
         />
+      )}
+
+      {/* Tauri Folder Path Input Dialog */}
+      {showTauriPathInput && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-5 space-y-4">
+            <div className="flex items-start space-x-3">
+              <div className="p-2.5 bg-amber-500/10 border border-amber-500/25 rounded-xl shrink-0">
+                <FolderOpen className="w-6 h-6 text-amber-400" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-sm font-bold text-zinc-100">Путь к локальной папке ассетов (Tauri)</h3>
+                <p className="text-[11px] text-zinc-400 leading-relaxed">
+                  В настольной версии введите абсолютный путь к папке ассетов на вашем диске (например, <code className="text-zinc-200 font-mono">D:\RPG\Assets</code> или <code className="text-zinc-200 font-mono">/Users/username/RPG/Assets</code>).
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase font-bold text-zinc-400 tracking-wider">Путь к папке</label>
+              <input
+                type="text"
+                value={tauriPath}
+                onChange={(e) => setTauriPath(e.target.value)}
+                placeholder="assets"
+                className="w-full px-3 py-2 bg-zinc-950 border border-zinc-700 rounded-xl text-zinc-200 font-mono text-xs focus:outline-none focus:border-amber-400"
+              />
+            </div>
+
+            <div className="flex items-center justify-end space-x-2 pt-2">
+              <button
+                onClick={() => setShowTauriPathInput(false)}
+                className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-xs font-semibold cursor-pointer"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={async () => {
+                  setShowTauriPathInput(false);
+                  setLoading(true);
+                  try {
+                    await diskAssetAutoSync.setConnectedDirectoryHandle(tauriPath);
+                    setStatusMessage({
+                      text: `Путь к папке «${tauriPath}» сохранен! Запущена синхронизация.`,
+                      type: 'success',
+                    });
+                  } catch (err: any) {
+                    setStatusMessage({
+                      text: `Ошибка сохранения пути: ${err.message}`,
+                      type: 'error',
+                    });
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-lg text-xs font-bold cursor-pointer"
+              >
+                Привязать папку
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Confirmation Modal for Force Re-parsing */}

@@ -1,6 +1,7 @@
 import { MapItem, AudioPlaylist, SoundEffect } from '../types';
 import { audioEngine } from './audioEngine';
 import { worldLoreService, DEFAULT_WORLDS } from './worldLoreService';
+import { checkIsTauri } from '../utils/apiUrlHelper';
 import {
   scanDiskAssetDirectory,
   loadAssetFolderContent,
@@ -123,6 +124,20 @@ class DiskAssetAutoSyncService {
     if (typeof window === 'undefined') return;
 
     try {
+      if (checkIsTauri()) {
+        const tauriPath = localStorage.getItem('aethermap_tauri_folder_path');
+        if (tauriPath) {
+          this.localFolderConnected = true;
+          this.folderName = tauriPath;
+          this.notify();
+          // Trigger initial manual sync
+          setTimeout(() => {
+            this.manualSync();
+          }, 500);
+          return;
+        }
+      }
+
       // 1. Immediately restore metadata (synchronous fallback + async IDB)
       const meta = await getStoredFolderMetadata('aethermap_asset_folder_meta');
       if (meta && meta.connected) {
@@ -169,6 +184,114 @@ class DiskAssetAutoSyncService {
     this.notify();
 
     try {
+      if (checkIsTauri()) {
+        const path = localStorage.getItem('aethermap_tauri_folder_path') || 'assets';
+        try {
+          const { invoke, convertFileSrc } = await import('@tauri-apps/api/core');
+          const summary: any = await invoke('scan_disk_assets', { rootPath: path });
+
+          if (summary && Array.isArray(summary.items)) {
+            // Group and map items
+            const mappedItems: MapItem[] = [];
+            const musicItems: any[] = [];
+            const sfxItems: any[] = [];
+
+            summary.items.forEach((item: any) => {
+              const url = convertFileSrc(item.path);
+              const cleanName = item.name.replace(/\.[^/.]+$/, '');
+
+              if (item.section === 'maps' || item.section === 'props') {
+                mappedItems.push({
+                  id: item.id,
+                  name: cleanName,
+                  type: ['mp4', 'webm', 'm4v'].includes(item.format.toLowerCase()) ? 'video' : 'image',
+                  url,
+                  thumbnailUrl: url,
+                  category: item.category || 'Общее',
+                  layer: item.section === 'props' ? 'props' : 'background',
+                  format: item.format,
+                  fileSize: item.size_bytes || item.sizeBytes || 0,
+                  width: 1920,
+                  height: 1080,
+                  aspectRatio: 1.77,
+                  position: { x: 0, y: 0 },
+                  scale: { x: 1, y: 1 },
+                  rotation: 0,
+                  zIndex: item.section === 'props' ? 10 : 0,
+                  opacity: 1,
+                  hash: item.id,
+                });
+              } else if (item.section === 'music') {
+                musicItems.push(item);
+              } else if (item.section === 'sfx') {
+                sfxItems.push(item);
+              }
+            });
+
+            // 1. Playlists/Tracks in Audio Engine
+            const playlistsMap = new Map<string, any[]>();
+            musicItems.forEach((item: any) => {
+              const plName = item.category || 'General';
+              if (!playlistsMap.has(plName)) playlistsMap.set(plName, []);
+              playlistsMap.get(plName)!.push({
+                title: item.name.replace(/\.[^/.]+$/, ''),
+                url: convertFileSrc(item.path),
+              });
+            });
+            const transformedPlaylists = Array.from(playlistsMap.entries()).map(([name, tracks]) => ({
+              playlistName: name,
+              category: 'Local',
+              tracks,
+            }));
+            audioEngine.loadDiscoveredPlaylists(transformedPlaylists);
+
+            // 2. SFX in Audio Engine
+            const transformedSFX = sfxItems.map((item: any) => ({
+              name: item.name.replace(/\.[^/.]+$/, ''),
+              bank: item.category || 'General',
+              url: convertFileSrc(item.path),
+              icon: 'volume2',
+            }));
+            audioEngine.loadDiscoveredSFX(transformedSFX);
+
+            // 3. Maps update
+            if (mappedItems.length > 0 && this.mapsUpdateCallback) {
+              const uniqueCategories = Array.from(new Set(mappedItems.map(m => m.category || 'Общее')));
+              this.mapsUpdateCallback(mappedItems, uniqueCategories);
+            }
+
+            // Stats
+            this.stats = {
+              mapsCount: mappedItems.filter(m => m.layer !== 'props').length,
+              mapCategoriesCount: summary.categories_by_section?.maps?.length || 0,
+              tracksCount: musicItems.length,
+              propsCount: mappedItems.filter(m => m.layer === 'props').length,
+              sfxCount: sfxItems.length,
+              effectsCount: summary.items.filter((item: any) => item.section === 'effects').length,
+              systemsCount: this.stats.systemsCount || 0,
+              systemFilesCount: this.stats.systemFilesCount || 0,
+            };
+
+            this.localFolderConnected = true;
+            this.folderName = path;
+          }
+        } catch (tauriErr: any) {
+          console.error('Tauri native scan_disk_assets failed:', tauriErr);
+          throw new Error(`Ошибка сканирования Tauri: ${tauriErr.message || tauriErr}`);
+        }
+
+        // Enrich stats with lore, worlds, systems and total counts
+        await this.enrichStats();
+
+        this.lastSyncedAt = Date.now();
+
+        const summaryText = `Синхронизация завершена: ${this.stats.mapsCount} карт, ${this.stats.tracksCount} треков, ${this.stats.propsCount} пропсов, ${this.stats.sfxCount} SFX`;
+        this.addEvent('all', summaryText);
+        this.notify();
+
+        return { success: true, message: summaryText };
+      }
+
       let handle = getActiveDirectoryHandle();
 
       // If handle not loaded into memory yet, try restoring from IDB
@@ -281,6 +404,15 @@ class DiskAssetAutoSyncService {
    * Disconnect local folder binding and clear IDB storage
    */
   public async disconnectFolder(): Promise<void> {
+    if (checkIsTauri()) {
+      localStorage.removeItem('aethermap_tauri_folder_path');
+      this.localFolderConnected = false;
+      this.folderName = 'Серверная папка assets/';
+      this.addEvent('all', 'Папка ассетов отвязана');
+      this.notify();
+      return;
+    }
+
     setActiveDirectoryHandle(null);
     this.localFolderConnected = false;
     this.folderName = 'Серверная папка assets/';
@@ -462,6 +594,15 @@ class DiskAssetAutoSyncService {
    * Sets new local folder handle and persists to IDB
    */
   public async setConnectedDirectoryHandle(handle: any): Promise<void> {
+    if (checkIsTauri() && typeof handle === 'string') {
+      localStorage.setItem('aethermap_tauri_folder_path', handle);
+      this.localFolderConnected = true;
+      this.folderName = handle;
+      this.notify();
+      await this.manualSync();
+      return;
+    }
+
     setActiveDirectoryHandle(handle);
     this.localFolderConnected = !!handle;
     this.folderName = handle?.name || 'Серверная папка assets/';

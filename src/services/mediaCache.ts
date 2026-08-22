@@ -1,5 +1,6 @@
 import { getIDBMediaUrl } from './db';
 import { mapLibraryCatalog } from './mapLibraryCatalog';
+import { resolveApiUrl } from '../utils/apiUrlHelper';
 
 // In-memory cache for resolved Blob object URLs to avoid continuous IDB reads and memory leaks
 const urlCache = new Map<string, string>();
@@ -11,7 +12,7 @@ const pendingPromises = new Map<string, Promise<string | null>>();
  */
 export async function getCachedMediaUrl(mapId: string, rawUrl: string): Promise<string> {
   if (!rawUrl) {
-    return `/api/media/${mapId}`;
+    return resolveApiUrl(`/api/media/${mapId}`);
   }
 
   // If raw URL is a direct web/HTTP or data URL, return immediately
@@ -43,7 +44,7 @@ export async function getCachedMediaUrl(mapId: string, rawUrl: string): Promise<
   // Deduplicate concurrent requests for the same media
   if (pendingPromises.has(cleanKey)) {
     const res = await pendingPromises.get(cleanKey)!;
-    return res || rawUrl || `/api/media/${cleanKey}`;
+    return res || rawUrl || resolveApiUrl(`/api/media/${cleanKey}`);
   }
 
   const fetchPromise = (async (): Promise<string> => {
@@ -83,7 +84,7 @@ export async function getCachedMediaUrl(mapId: string, rawUrl: string): Promise<
     }
 
     // Priority 3: Fallback to backend media stream endpoint if running
-    const backendMediaUrl = `/api/media/${cleanKey}`;
+    const backendMediaUrl = resolveApiUrl(`/api/media/${cleanKey}`);
     try {
       const checkRes = await fetch(backendMediaUrl, { method: 'HEAD' });
       if (checkRes.ok && checkRes.headers.get('content-type')?.includes('image') || checkRes.headers.get('content-type')?.includes('video')) {
@@ -99,7 +100,7 @@ export async function getCachedMediaUrl(mapId: string, rawUrl: string): Promise<
       return rawUrl;
     }
 
-    return `/api/media/${cleanKey}`;
+    return resolveApiUrl(`/api/media/${cleanKey}`);
   })();
 
   pendingPromises.set(cleanKey, fetchPromise);

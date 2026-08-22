@@ -1,11 +1,28 @@
 import { TabletopSessionState } from '../types';
 import { DEFAULT_INITIAL_SESSION } from './defaultSession';
+import { checkIsTauri } from '../utils/apiUrlHelper';
 
 const DB_NAME = 'aethermap_indexed_db';
 const DB_VERSION = 1;
 const SESSION_STORE = 'sessions';
 const MEDIA_STORE = 'media_files';
 const CURRENT_SESSION_KEY = 'active_tabletop_session';
+
+async function createSafeBlobUrl(blob: Blob): Promise<string> {
+  if (checkIsTauri()) {
+    try {
+      return await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => resolve(URL.createObjectURL(blob));
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      return URL.createObjectURL(blob);
+    }
+  }
+  return URL.createObjectURL(blob);
+}
 
 let dbPromise: Promise<IDBDatabase | null> | null = null;
 
@@ -149,9 +166,9 @@ export async function saveIDBMediaFile(mapId: string, blob: Blob): Promise<strin
       });
     }
 
-    return URL.createObjectURL(blob);
+    return await createSafeBlobUrl(blob);
   } catch {
-    return URL.createObjectURL(blob);
+    return await createSafeBlobUrl(blob);
   }
 }
 
@@ -190,7 +207,7 @@ export async function getIDBMediaUrl(mapId: string): Promise<string | null> {
   try {
     const blob = await getIDBBlob(mapId);
     if (blob) {
-      return URL.createObjectURL(blob);
+      return await createSafeBlobUrl(blob);
     }
     return null;
   } catch {

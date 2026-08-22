@@ -1,5 +1,6 @@
 import React, { useState, useEffect, memo } from 'react';
 import { getCachedMediaUrl } from '../services/mediaCache';
+import { resolveApiUrl } from '../utils/apiUrlHelper';
 import { MapItem } from '../types';
 
 interface Props {
@@ -41,7 +42,7 @@ export const MediaRenderer: React.FC<Props> = memo(({ mapItem, className }) => {
       if (mapItem.thumbnailUrl && mapItem.thumbnailUrl !== resolvedUrl && !mapItem.thumbnailUrl.startsWith('blob:')) {
         setResolvedUrl(mapItem.thumbnailUrl);
       } else if (!resolvedUrl.startsWith('/api/media/')) {
-        setResolvedUrl(`/api/media/${mapItem.id}`);
+        setResolvedUrl(resolveApiUrl(`/api/media/${mapItem.id}`));
       }
     }
   };

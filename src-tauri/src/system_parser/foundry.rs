@@ -55,7 +55,7 @@ fn extract_foundry_docs(raw_val: &Value) -> Vec<Value> {
 
 fn normalize_foundry_document(
     doc: &Value,
-    index: usize,
+    _index: usize,
     filename: Option<&str>,
 ) -> Option<UniversalParsedEntity> {
     let sys_data = doc.get("system").or_else(|| doc.get("data")).cloned().unwrap_or_else(|| serde_json::json!({}));
@@ -467,7 +467,7 @@ fn normalize_foundry_document(
     // 5. CARDS (Decks / Hands / Piles)
     if let Some(cards) = doc.get("cards").and_then(|c| c.as_array()) {
         let mut card_rows = Vec::new();
-        for (idx, card) in cards.iter().enumerate() {
+        for card in cards {
             let c_name = card.get("name").and_then(|n| n.as_str()).unwrap_or_else(|| "Карта");
             let c_type = card.get("type").and_then(|t| t.as_str()).unwrap_or("card");
             let c_desc = card.get("description")
