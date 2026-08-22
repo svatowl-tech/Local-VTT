@@ -86,6 +86,8 @@ pub fn parse_roll20_sheet(json: &Value, filename: Option<&str>) -> Vec<Universal
         summary,
         description: json.get("bio").or_else(|| json.get("gmnotes")).and_then(|v| v.as_str()).map(|s| s.to_string()),
         tags: vec!["Roll20".to_string(), "Персонаж".to_string()],
+        img: None,
+        token_img: None,
         stats: Some(stats),
         actions: if actions.is_empty() { None } else { Some(actions) },
         traits: None,

@@ -65,6 +65,8 @@ pub fn parse_lore_and_worlds_raw(
             summary: raw_data.chars().take(200).collect::<String>() + "...",
             description: Some(raw_data.to_string()),
             tags: vec!["Лор".to_string(), "Импорт".to_string(), sys_id.to_string()],
+            img: None,
+            token_img: None,
             stats: None,
             actions: None,
             traits: None,
@@ -209,6 +211,8 @@ fn parse_json_lore_and_rules(
                 summary: format!("Правила и статблок: {}", name),
                 description: Some(content.clone()),
                 tags: vec!["Монстр".to_string(), "Статблок".to_string(), sys_id.to_string()],
+                img: None,
+                token_img: None,
                 stats: extract_normalized_stats_from_json(item, sys_id),
                 actions: None,
                 traits: None,
@@ -238,6 +242,8 @@ fn parse_json_lore_and_rules(
             summary,
             description: Some(rich_content.clone()),
             tags: vec!["Лор".to_string(), sys_id.to_string()],
+            img: None,
+            token_img: None,
             stats: None,
             actions: None,
             traits: None,
@@ -294,6 +300,8 @@ fn parse_wikitext_document(
             summary: clean_body.chars().take(180).collect::<String>() + "...",
             description: Some(clean_body.clone()),
             tags: vec!["Вики".to_string(), sys_id.to_string()],
+            img: None,
+            token_img: None,
             stats: None,
             actions: None,
             traits: None,
@@ -320,13 +328,14 @@ fn clean_wikitext_markup(raw: &str) -> String {
     // Remove links [[Link|Label]] -> Label
     while let Some(start) = text.find("[[") {
         if let Some(end) = text[start..].find("]]") {
-            let inner = &text[start + 2..start + end];
+            let absolute_end = start + end;
+            let inner = text[start + 2..absolute_end].to_string();
             let replacement = if let Some(pipe) = inner.find('|') {
-                &inner[pipe + 1..]
+                inner[pipe + 1..].to_string()
             } else {
                 inner
             };
-            text.replace_range(start..start + end + 2, replacement);
+            text.replace_range(start..absolute_end + 2, &replacement);
         } else {
             break;
         }
@@ -379,6 +388,8 @@ fn parse_text_sections_into_lore_and_rules(
                 summary: format!("Статблок из книги: {}", title),
                 description: Some(content.clone()),
                 tags: vec!["Правило".to_string(), "Статблок".to_string(), sys_id.to_string()],
+                img: None,
+                token_img: None,
                 stats: extract_normalized_stats_from_text(&content, sys_id),
                 actions: None,
                 traits: None,
@@ -407,6 +418,8 @@ fn parse_text_sections_into_lore_and_rules(
             summary: rich_content.chars().take(200).collect::<String>() + "...",
             description: Some(rich_content.clone()),
             tags: vec!["Лор".to_string(), sys_id.to_string()],
+            img: None,
+            token_img: None,
             stats: None,
             actions: None,
             traits: None,
@@ -438,40 +451,45 @@ fn check_text_has_statblock(text: &str, sys_id: &str) -> bool {
     }
 }
 
-fn extract_normalized_stats_from_json(item: &serde_json::Value, sys_id: &str) -> Option<NormalizedStats> {
-    Some(NormalizedStats {
-        ac: item.get("ac").and_then(|v| v.as_i64()).map(|v| v as i32).unwrap_or(12),
-        hp: item.get("hp").and_then(|v| v.as_i64()).map(|v| v as i32).unwrap_or(20),
-        hp_formula: item.get("hpFormula").and_then(|v| v.as_str()).map(|v| v.to_string()),
-        cr: item.get("cr").and_then(|v| v.as_str()).map(|v| v.to_string()).unwrap_or_else(|| "1".to_string()),
-        speed: item.get("speed").and_then(|v| v.as_str()).map(|v| v.to_string()).unwrap_or_else(|| "30 ft.".to_string()),
-        str_val: item.get("str").and_then(|v| v.as_i64()).map(|v| v as i32).unwrap_or(10),
-        dex_val: item.get("dex").and_then(|v| v.as_i64()).map(|v| v as i32).unwrap_or(10),
-        con_val: item.get("con").and_then(|v| v.as_i64()).map(|v| v as i32).unwrap_or(10),
-        int_val: item.get("int").and_then(|v| v.as_i64()).map(|v| v as i32).unwrap_or(10),
-        wis_val: item.get("wis").and_then(|v| v.as_i64()).map(|v| v as i32).unwrap_or(10),
-        cha_val: item.get("cha").and_then(|v| v.as_i64()).map(|v| v as i32).unwrap_or(10),
-        type_line: Some(sys_id.to_string()),
-        alignment: Some("Нейтральный".to_string()),
-    })
+fn extract_normalized_stats_from_json(item: &serde_json::Value, _sys_id: &str) -> Option<NormalizedStats> {
+    let mut stats = NormalizedStats::default();
+    stats.ac = item.get("ac").and_then(|v| v.as_i64().map(|x| x.to_string()).or_else(|| v.as_str().map(|s| s.to_string())));
+    stats.hp = item.get("hp").and_then(|v| v.as_i64().map(|v| v as i32));
+    stats.hit_dice = item.get("hpFormula").and_then(|v| v.as_str().map(|s| s.to_string()));
+    stats.cr = item.get("cr").and_then(|v| v.as_str().map(|s| s.to_string()));
+    stats.speed = item.get("speed").and_then(|v| v.as_str().map(|s| s.to_string()));
+    
+    let mut attrs = HashMap::new();
+    if let Some(str_v) = item.get("str").and_then(|v| v.as_i64()) { attrs.insert("str".to_string(), serde_json::Value::from(str_v)); }
+    if let Some(dex_v) = item.get("dex").and_then(|v| v.as_i64()) { attrs.insert("dex".to_string(), serde_json::Value::from(dex_v)); }
+    if let Some(con_v) = item.get("con").and_then(|v| v.as_i64()) { attrs.insert("con".to_string(), serde_json::Value::from(con_v)); }
+    if let Some(int_v) = item.get("int").and_then(|v| v.as_i64()) { attrs.insert("int".to_string(), serde_json::Value::from(int_v)); }
+    if let Some(wis_v) = item.get("wis").and_then(|v| v.as_i64()) { attrs.insert("wis".to_string(), serde_json::Value::from(wis_v)); }
+    if let Some(cha_v) = item.get("cha").and_then(|v| v.as_i64()) { attrs.insert("cha".to_string(), serde_json::Value::from(cha_v)); }
+    if !attrs.is_empty() {
+        stats.attributes = Some(attrs);
+    }
+    Some(stats)
 }
 
-fn extract_normalized_stats_from_text(text: &str, sys_id: &str) -> Option<NormalizedStats> {
-    Some(NormalizedStats {
-        ac: 12,
-        hp: 25,
-        hp_formula: Some("4d8 + 4".to_string()),
-        cr: "1".to_string(),
-        speed: "30 ft.".to_string(),
-        str_val: 12,
-        dex_val: 12,
-        con_val: 12,
-        int_val: 10,
-        wis_val: 10,
-        cha_val: 10,
-        type_line: Some(sys_id.to_string()),
-        alignment: Some("Нейтральный".to_string()),
-    })
+fn extract_normalized_stats_from_text(_text: &str, _sys_id: &str) -> Option<NormalizedStats> {
+    let mut stats = NormalizedStats::default();
+    stats.ac = Some("12".to_string());
+    stats.hp = Some(25);
+    stats.hit_dice = Some("4d8 + 4".to_string());
+    stats.cr = Some("1".to_string());
+    stats.speed = Some("30 ft.".to_string());
+    
+    let mut attrs = HashMap::new();
+    attrs.insert("str".to_string(), serde_json::Value::from(12));
+    attrs.insert("dex".to_string(), serde_json::Value::from(12));
+    attrs.insert("con".to_string(), serde_json::Value::from(12));
+    attrs.insert("int".to_string(), serde_json::Value::from(10));
+    attrs.insert("wis".to_string(), serde_json::Value::from(10));
+    attrs.insert("cha".to_string(), serde_json::Value::from(10));
+    stats.attributes = Some(attrs);
+    
+    Some(stats)
 }
 
 fn build_parse_result(
@@ -484,18 +502,20 @@ fn build_parse_result(
     let count = entities.len();
     UniversalParseResult {
         success: errors.is_empty(),
-        detected_format: fmt.to_string(),
-        detected_format_label: engine_name.to_string(),
-        parsed_entities: entities,
+        source_format: fmt.to_string(),
+        format_description: engine_name.to_string(),
+        total_entities_found: count,
+        entities,
         errors,
         warnings,
         stats: crate::system_parser::types::UniversalParseStats {
-            total_parsed: count,
+            characters_count: 0,
             monsters_count: 0,
             spells_count: 0,
             items_count: 0,
-            characters_count: 0,
+            rules_count: count,
             tables_count: 0,
+            other_count: 0,
         },
     }
 }

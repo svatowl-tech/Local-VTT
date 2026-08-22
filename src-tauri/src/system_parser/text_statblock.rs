@@ -134,6 +134,8 @@ pub fn parse_text_statblock(raw_text: &str, filename: Option<&str>) -> Vec<Unive
         summary,
         description: Some(raw_text.to_string()),
         tags: vec!["Статблок".to_string(), "Монстры".to_string()],
+        img: None,
+        token_img: None,
         stats: Some(stats),
         actions: if actions.is_empty() { None } else { Some(actions) },
         traits: if traits.is_empty() { None } else { Some(traits) },

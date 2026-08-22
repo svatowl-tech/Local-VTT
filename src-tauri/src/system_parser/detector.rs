@@ -76,7 +76,7 @@ pub fn detect_source_format(
                         return if docs.len() > 1 {
                             ("foundry_compendium", "Foundry VTT Journal Compendium")
                         } else {
-                            ("foundry_journal", "Foundry VTT Journal Entry");
+                            ("foundry_journal", "Foundry VTT Journal Entry")
                         };
                     }
 
@@ -84,7 +84,7 @@ pub fn detect_source_format(
                         return if docs.len() > 1 {
                             ("foundry_compendium", "Foundry VTT RollTables Pack")
                         } else {
-                            ("foundry_rolltable", "Foundry VTT RollTable");
+                            ("foundry_rolltable", "Foundry VTT RollTable")
                         };
                     }
 

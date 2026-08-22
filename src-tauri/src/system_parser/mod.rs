@@ -103,6 +103,8 @@ pub fn parse_raw_system_data(
                         summary: "Универсальный JSON объект".to_string(),
                         description: None,
                         tags: vec!["JSON".to_string()],
+                        img: None,
+                        token_img: None,
                         stats: None,
                         actions: None,
                         traits: None,

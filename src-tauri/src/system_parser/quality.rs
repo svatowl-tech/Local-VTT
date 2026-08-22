@@ -122,14 +122,15 @@ pub fn clean_html_and_macros(input: &str) -> String {
     // 5. Clean 5eTools tags {@spell fireball|phb}
     while let Some(start) = s.find("{@") {
         if let Some(end) = s[start..].find('}') {
-            let inner = &s[start + 2..start + end];
+            let absolute_end = start + end;
+            let inner = s[start + 2..absolute_end].to_string();
             let parts: Vec<&str> = inner.split_whitespace().collect();
             let val = if parts.len() > 1 {
-                parts[1].split('|').next().unwrap_or(parts[1])
+                parts[1].split('|').next().unwrap_or(parts[1]).to_string()
             } else {
                 inner
             };
-            s.replace_range(start..=start + end, val);
+            s.replace_range(start..=absolute_end, &val);
         } else {
             break;
         }
