@@ -1,6 +1,6 @@
 {
   "name": "AetherMap - Master Tabletop Projection System",
-  "description": "Dual-window TTRPG projection system for DMs and players playing offline with a digital projector or TV tabletop. Features Miro-like master canvas, Rust calculations, fog of war, video maps, and elemental effects.",
+  "description": "Dual-window TTRPG projection system for DMs and players playing offline with a digital projector or TV tabletop. Features Miro-like master canvas, universal data parser (Foundry VTT, Roll20, 5eTools, PDF, XML), system-specific rules engine, fog of war, video maps, and elemental effects.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

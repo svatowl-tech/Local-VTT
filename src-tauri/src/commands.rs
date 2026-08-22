@@ -10,6 +10,7 @@ use crate::noise;
 use crate::physics;
 use crate::spatial;
 use crate::sync::SharedState;
+use crate::system_parser;
 use crate::types::{
     AnimatedEffectItem, CameraFrame, CameraTransform, DiceDistributionResult, DiceRollResult,
     EffectNode, ElementalClashResult, FogPoint, Point2D, SpatialItem, SpatialQueryResult,
@@ -263,4 +264,120 @@ pub fn snap_coordinates_to_grid(
 ) -> (f64, f64) {
     grid::snap_to_grid_cell(x, y, cell_size, offset_x, offset_y, snap_to_center)
 }
+
+#[tauri::command]
+pub fn parse_system_raw_data(
+    data: String,
+    format: Option<String>,
+    filename: Option<String>,
+    default_system: Option<String>,
+) -> system_parser::UniversalParseResult {
+    system_parser::parse_raw_system_data(
+        &data,
+        filename.as_deref(),
+        format.as_deref(),
+        default_system.as_deref(),
+    )
+}
+
+#[tauri::command]
+pub fn parse_system_file(
+    file_path: String,
+    default_system: Option<String>,
+) -> Result<system_parser::UniversalParseResult, String> {
+    let path = Path::new(&file_path);
+    system_parser::parse_file_on_disk(path, default_system.as_deref())
+}
+
+#[tauri::command]
+pub fn scan_and_parse_system_directory(
+    systems_dir: String,
+    system_id: Option<String>,
+) -> Result<Vec<system_parser::SystemDataItemRust>, String> {
+    let path = Path::new(&systems_dir);
+    system_parser::disk_scanner::scan_systems_directory(path, system_id.as_deref())
+}
+
+#[tauri::command]
+pub fn import_parsed_entities_rust(
+    target_dir: String,
+    system_id: String,
+    entities: Vec<system_parser::UniversalParsedEntity>,
+) -> Result<system_parser::ImportResult, String> {
+    let path = Path::new(&target_dir);
+    system_parser::disk_scanner::import_entities_to_disk(path, &system_id, &entities)
+}
+
+#[tauri::command]
+pub fn search_system_reference(
+    query: String,
+    system_id: Option<String>,
+    category: Option<String>,
+    limit: Option<usize>,
+    systems_dir: Option<String>,
+) -> system_parser::SystemReferenceSearchResult {
+    system_parser::search_reference_data(system_parser::SystemReferenceSearchQuery {
+        query,
+        system_id,
+        category,
+        limit,
+        systems_dir,
+    })
+}
+
+#[tauri::command]
+pub fn parse_lore_raw_data(
+    data: String,
+    filename: Option<String>,
+    target_world_id: Option<String>,
+    target_system_id: Option<String>,
+) -> system_parser::UniversalParseResult {
+    system_parser::lore_parser::parse_lore_and_worlds_raw(
+        &data,
+        filename.as_deref(),
+        target_world_id.as_deref(),
+        target_system_id.as_deref(),
+    )
+}
+
+#[tauri::command]
+pub fn save_lore_item_rust(
+    lore_dir: String,
+    world_folder: String,
+    item_json_str: String,
+    filename: String,
+) -> Result<system_parser::lore_disk::SaveLoreItemResult, String> {
+    let path = Path::new(&lore_dir);
+    system_parser::lore_disk::save_lore_item_to_disk_rust(path, &world_folder, &item_json_str, &filename)
+}
+
+#[tauri::command]
+pub fn delete_lore_item_rust(
+    lore_dir: String,
+    world_folder: String,
+    filename: String,
+) -> Result<bool, String> {
+    let path = Path::new(&lore_dir);
+    system_parser::lore_disk::delete_lore_item_from_disk_rust(path, &world_folder, &filename)
+}
+
+#[tauri::command]
+pub fn scan_lore_folder_incremental_rust(
+    lore_dir: String,
+    world_folder: String,
+    target_world_id: String,
+    target_system_id: String,
+    force_reparse: Option<bool>,
+) -> Result<system_parser::lore_disk::ScanLoreIncrementalResult, String> {
+    let path = Path::new(&lore_dir);
+    system_parser::lore_disk::scan_lore_folder_incremental_rust(
+        path,
+        &world_folder,
+        &target_world_id,
+        &target_system_id,
+        force_reparse.unwrap_or(false),
+    )
+}
+
+
 

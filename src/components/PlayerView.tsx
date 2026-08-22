@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState, memo } from 'react';
 import { TabletopSessionState, MapItem } from '../types';
 import { Maximize2, Tv, MousePointer, MousePointerClick, MapPin } from 'lucide-react';
 import { MediaRenderer } from './MediaRenderer';
+import { PlayerContentCardRenderer } from './PlayerContentCardRenderer';
 import { FogCanvasRenderer } from './FogCanvasRenderer';
 import { GridCanvasRenderer } from './GridCanvasRenderer';
 import { DrawingCanvasLayer } from './DrawingCanvasLayer';
@@ -179,7 +180,9 @@ export const PlayerView: React.FC<Props> = memo(({ session }) => {
               contain: 'layout style',
             }}
           >
-            {isPortal ? (
+            {mapItem.isContentCard || mapItem.type === 'card' ? (
+              <PlayerContentCardRenderer mapItem={mapItem} />
+            ) : isPortal ? (
               <div className="w-full h-full flex flex-col items-center justify-center relative select-none pointer-events-auto">
                 {/* Pulsing red radar rings */}
                 <div className="absolute w-12 h-12 rounded-full bg-rose-600/20 border border-rose-500/50 animate-ping opacity-75" />

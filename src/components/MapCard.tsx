@@ -2,6 +2,7 @@ import React, { memo } from 'react';
 import { MapItem, ActiveTool, ObjectLayerType } from '../types';
 import { MediaRenderer } from './MediaRenderer';
 import { SubmapPortalCard } from './SubmapPortalCard';
+import { TabletopContentCard } from './TabletopContentCard';
 import {
   Layers,
   Map as MapIcon,
@@ -31,6 +32,8 @@ interface Props {
   onQuickUpdate?: (mapId: string, partial: Partial<MapItem>) => void;
   onContextMenu?: (e: React.MouseEvent, mapItem: MapItem) => void;
   onOpenSubmapTab?: (portalItem: MapItem) => void;
+  onDeleteMap?: (mapId: string) => void;
+  onOpenInitiative?: () => void;
 }
 
 const LAYER_INFO: Record<
@@ -85,6 +88,8 @@ export const MapCard: React.FC<Props> = memo(({
   onQuickUpdate,
   onContextMenu,
   onOpenSubmapTab,
+  onDeleteMap,
+  onOpenInitiative,
 }) => {
   const currentLayer: ObjectLayerType = mapItem.layer || 'background';
   const layerMeta = LAYER_INFO[currentLayer] || LAYER_INFO.background;
@@ -169,7 +174,16 @@ export const MapCard: React.FC<Props> = memo(({
         contain: 'layout style',
       }}
     >
-      {mapItem.isSubmapPortal ? (
+      {mapItem.isContentCard || mapItem.type === 'card' ? (
+        <TabletopContentCard
+          mapItem={mapItem}
+          isSelected={isSelected}
+          activeTool={activeTool}
+          onQuickUpdate={onQuickUpdate}
+          onDeleteMap={onDeleteMap}
+          onOpenInitiative={onOpenInitiative}
+        />
+      ) : mapItem.isSubmapPortal ? (
         <SubmapPortalCard
           mapItem={mapItem}
           isSelected={isSelected}
@@ -189,8 +203,8 @@ export const MapCard: React.FC<Props> = memo(({
         </div>
       )}
 
-      {/* Map Title Tag & Layer Status (for standard maps/props) */}
-      {!mapItem.isSubmapPortal && (
+      {/* Map Title Tag & Layer Status (for standard maps/props, not for content cards) */}
+      {!mapItem.isSubmapPortal && !mapItem.isContentCard && mapItem.type !== 'card' && (
         <div className="absolute top-2 left-2 flex items-center space-x-1 pointer-events-auto select-none">
           <div className="bg-zinc-950/85 backdrop-blur-md px-2 py-1 rounded text-[11px] font-medium text-zinc-200 border border-zinc-800/80 flex items-center space-x-1.5 shadow-md">
             <span>{mapItem.name}</span>

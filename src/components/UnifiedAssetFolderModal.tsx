@@ -20,21 +20,37 @@ import {
   Trash2,
   Clock,
   Sparkles,
+  Swords,
+  Layers,
+  BookOpen,
+  Globe,
+  Crown,
+  Building,
+  Users,
+  Search,
+  ChevronRight,
+  ExternalLink,
+  ShieldAlert,
+  FileCode,
+  RotateCcw,
+  AlertTriangle,
+  FileUp,
 } from 'lucide-react';
 import {
   pickDiskAssetDirectory,
-  scanDiskAssetDirectory,
   saveSessionSnapshotToDisk,
-  createCanonicalFolderStructure,
   parseUploadedDirectoryFiles,
-  getActiveDirectoryHandle,
-  loadAssetFolderContent,
 } from '../services/unifiedAssetFolderService';
 import { mapLibraryCatalog } from '../services/mapLibraryCatalog';
 import { audioEngine } from '../services/audioEngine';
 import { diskAssetAutoSync, DiskSyncState } from '../services/diskAssetAutoSync';
-import { TabletopSessionState, UnifiedAssetFolderStats, MapItem } from '../types';
+import { TabletopSessionState, MapItem } from '../types';
 import { autoTagResource } from '../utils/taggingEngine';
+import { SystemSelectorSection } from './systems/SystemSelectorSection';
+import { MasterLoreWikiPanel } from './lore/MasterLoreWikiPanel';
+import { UniversalDataParserModal } from './systems/UniversalDataParserModal';
+import { DEFAULT_WORLDS, worldLoreService } from '../services/worldLoreService';
+import { systemContentService } from '../services/systemContentService';
 
 interface Props {
   isOpen: boolean;
@@ -42,6 +58,8 @@ interface Props {
   session: TabletopSessionState;
   onUpdateMaps: (maps: MapItem[], activeMapId?: string | null) => void;
   onUpdateCategories: (categories: string[]) => void;
+  onPlaceLoreOnCanvas?: (item: any) => void;
+  onPlaceImageOnCanvas?: (imageUrl: string, name: string) => void;
   zIndex?: number;
   onFocus?: () => void;
 }
@@ -52,14 +70,45 @@ export const UnifiedAssetFolderModal: React.FC<Props> = ({
   session,
   onUpdateMaps,
   onUpdateCategories,
+  onPlaceLoreOnCanvas,
+  onPlaceImageOnCanvas,
   zIndex = 45,
   onFocus,
 }) => {
+  const [activeTab, setActiveTab] = useState<'systems' | 'lore' | 'worlds' | 'assets' | 'backup'>('systems');
   const [createStructure, setCreateStructure] = useState<boolean>(true);
   const [syncState, setSyncState] = useState<DiskSyncState>(() => diskAssetAutoSync.getState());
   const [loading, setLoading] = useState<boolean>(false);
   const [scanProgress, setScanProgress] = useState<string>('');
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'info' | 'error' } | null>(null);
+
+  // Universal Data Parser & Lore Management State
+  const [isParserOpen, setIsParserOpen] = useState<boolean>(false);
+  const [selectedLoreWorldId, setSelectedLoreWorldId] = useState<string>('dnd5e_faerun');
+  const [isConfirmReparseOpen, setIsConfirmReparseOpen] = useState<boolean>(false);
+  const [reparseTargetWorldId, setReparseTargetWorldId] = useState<string>('dnd5e_faerun');
+
+  const handleExecuteReparse = async (worldId: string) => {
+    setLoading(true);
+    setScanProgress(`Сброс структуры и перепарсинг файлов мира «${worldId}»...`);
+    try {
+      const res = await worldLoreService.reparseFolderFromScratch(worldId);
+      await diskAssetAutoSync.manualSync();
+      setStatusMessage({
+        text: res.message || 'Структура успешно очищена и распарсена заново с нуля!',
+        type: 'success',
+      });
+    } catch (e: any) {
+      setStatusMessage({
+        text: `Ошибка при перепарсинге: ${e.message || e}`,
+        type: 'error',
+      });
+    } finally {
+      setLoading(false);
+      setScanProgress('');
+      setIsConfirmReparseOpen(false);
+    }
+  };
 
   // Subscribe to disk asset auto sync service
   useEffect(() => {
@@ -98,7 +147,7 @@ export const UnifiedAssetFolderModal: React.FC<Props> = ({
   const handleManualRescan = async () => {
     try {
       setLoading(true);
-      setScanProgress('Синхронизация файлов с диска...');
+      setScanProgress('Синхронизация локальных и серверных файлов...');
       setStatusMessage(null);
 
       const result = await diskAssetAutoSync.manualSync();
@@ -275,23 +324,33 @@ export const UnifiedAssetFolderModal: React.FC<Props> = ({
     ? new Date(syncState.lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
     : 'Еще не синхронизировано';
 
+  // Compute uniform counts
+  const mapsCount = syncState.stats.mapsCount || 0;
+  const propsCount = syncState.stats.propsCount || 0;
+  const tracksCount = syncState.stats.tracksCount || 0;
+  const sfxCount = syncState.stats.sfxCount || 0;
+  const systemsCount = syncState.stats.systemsCount || 5;
+  const loreCount = syncState.stats.loreCount || 8;
+  const worldsCount = syncState.stats.worldsCount || DEFAULT_WORLDS.length;
+  const totalCount = syncState.stats.totalCount || (mapsCount + propsCount + tracksCount + sfxCount + systemsCount + loreCount + worldsCount);
+
   return (
     <FloatingWindow
       id="unified-assets-panel"
-      title="Папка контента и ассетов стола"
+      title="Папка контента, ассетов, лора и ролевых систем"
       isOpen={isOpen}
       onClose={onClose}
       icon={HardDrive}
-      defaultPosition={{ x: 140, y: 70 }}
-      defaultSize={{ width: 800, height: 580 }}
-      minWidth={480}
-      minHeight={360}
+      defaultPosition={{ x: 120, y: 50 }}
+      defaultSize={{ width: 920, height: 680 }}
+      minWidth={600}
+      minHeight={450}
       zIndex={zIndex}
       onFocus={onFocus}
     >
-      <div className="flex-1 flex flex-col p-5 overflow-y-auto space-y-5 text-zinc-100 text-xs">
+      <div className="flex-1 flex flex-col p-4 overflow-y-auto space-y-4 text-zinc-100 text-xs custom-scrollbar">
         {/* Status Header Banner */}
-        <div className="p-4 bg-zinc-950 border border-zinc-800 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-inner">
+        <div className="p-4 bg-zinc-950 border border-zinc-800 rounded-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-inner">
           <div className="flex items-center space-x-3.5 min-w-0">
             <div
               className={`p-3 rounded-xl border shrink-0 ${
@@ -320,44 +379,206 @@ export const UnifiedAssetFolderModal: React.FC<Props> = ({
               </div>
               <div className="flex items-center space-x-2 text-[11px] text-zinc-400 mt-1">
                 <Clock className="w-3 h-3 text-zinc-500 shrink-0" />
-                <span>Последняя синхронизация: <strong className="text-zinc-300 font-mono">{lastSyncTimeFormatted}</strong></span>
+                <span>
+                  Синхронизировано: <strong className="text-zinc-300 font-mono">{lastSyncTimeFormatted}</strong>
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center space-x-2 shrink-0">
+          {/* Header Action Buttons */}
+          <div className="flex items-center space-x-2 shrink-0 flex-wrap gap-y-1">
+            <button
+              onClick={() => setIsParserOpen(true)}
+              className="px-3 py-2 bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-300 border border-amber-500/50 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer shadow-md active:scale-95"
+              title="Универсальный парсер: Foundry VTT, Roll20, 5eTools, PDF, Текст, XML"
+            >
+              <Sparkles className="w-4 h-4 text-amber-400 animate-pulse" />
+              <span>Универсальный Парсер</span>
+            </button>
+
             <button
               onClick={handleManualRescan}
               disabled={loading || syncState.isSyncing}
-              className="px-3.5 py-2.5 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-zinc-950 rounded-xl text-xs font-bold flex items-center space-x-2 transition-all shadow-md active:scale-95 cursor-pointer"
-              title="Пересканировать и обновить контент с диска прямо сейчас"
+              className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-zinc-950 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all shadow-md active:scale-95 cursor-pointer"
+              title="Пересканировать ассеты, лор и правила с диска"
             >
-              <RefreshCw className={`w-4 h-4 ${loading || syncState.isSyncing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${loading || syncState.isSyncing ? 'animate-spin' : ''}`} />
               <span>Обновить контент</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setReparseTargetWorldId(selectedLoreWorldId);
+                setIsConfirmReparseOpen(true);
+              }}
+              disabled={loading || syncState.isSyncing}
+              className="px-3 py-2 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all shadow-sm active:scale-95 cursor-pointer disabled:opacity-50"
+              title="Сбросить распарсенную структуру и пересоздать её с нуля из исходных файлов"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
+              <span>Перепарсить с нуля</span>
             </button>
 
             <button
               onClick={handlePickDirectory}
               disabled={loading || syncState.isSyncing}
-              className="px-3.5 py-2.5 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50 text-zinc-200 border border-zinc-700 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition-all shadow-sm active:scale-95 cursor-pointer"
+              className="px-3 py-2 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50 text-zinc-200 border border-zinc-700 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition-all shadow-sm active:scale-95 cursor-pointer"
               title="Выбрать другую папку на диске"
             >
-              <FolderOpen className="w-4 h-4 text-amber-400" />
-              <span>{isConnected ? 'Сменить папку' : 'Привязать папку'}</span>
+              <FolderOpen className="w-3.5 h-3.5 text-amber-400" />
+              <span>{isConnected ? 'Сменить папку' : 'Привязать'}</span>
             </button>
 
             {isConnected && syncState.localFolderConnected && (
               <button
                 onClick={handleDisconnect}
                 disabled={loading || syncState.isSyncing}
-                className="p-2.5 bg-zinc-900 hover:bg-red-950/60 hover:text-red-400 text-zinc-400 border border-zinc-800 rounded-xl transition-all shadow-sm active:scale-95 cursor-pointer"
+                className="p-2 bg-zinc-900 hover:bg-rose-950/60 hover:text-rose-400 text-zinc-400 border border-zinc-800 rounded-xl transition-all cursor-pointer"
                 title="Отвязать папку"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
+        </div>
+
+        {/* Unified Folder Structure Overview Dashboard */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+          <div className="p-2.5 bg-zinc-950 border border-zinc-800 rounded-xl space-y-0.5">
+            <div className="flex items-center justify-between text-zinc-400">
+              <span className="font-semibold text-[10px] truncate">maps/</span>
+              <MapIcon className="w-3.5 h-3.5 text-amber-400" />
+            </div>
+            <div className="text-base font-bold text-zinc-100">{mapsCount}</div>
+            <p className="text-[9px] text-zinc-500 truncate">Карты стола</p>
+          </div>
+
+          <div className="p-2.5 bg-zinc-950 border border-zinc-800 rounded-xl space-y-0.5">
+            <div className="flex items-center justify-between text-zinc-400">
+              <span className="font-semibold text-[10px] truncate">props/</span>
+              <Box className="w-3.5 h-3.5 text-amber-400" />
+            </div>
+            <div className="text-base font-bold text-zinc-100">{propsCount}</div>
+            <p className="text-[9px] text-zinc-500 truncate">Токены и декор</p>
+          </div>
+
+          <div className="p-2.5 bg-zinc-950 border border-zinc-800 rounded-xl space-y-0.5">
+            <div className="flex items-center justify-between text-zinc-400">
+              <span className="font-semibold text-[10px] truncate">music/</span>
+              <Music className="w-3.5 h-3.5 text-cyan-400" />
+            </div>
+            <div className="text-base font-bold text-zinc-100">{tracksCount}</div>
+            <p className="text-[9px] text-zinc-500 truncate">Саундтреки</p>
+          </div>
+
+          <div className="p-2.5 bg-zinc-950 border border-zinc-800 rounded-xl space-y-0.5">
+            <div className="flex items-center justify-between text-zinc-400">
+              <span className="font-semibold text-[10px] truncate">sfx/</span>
+              <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+            </div>
+            <div className="text-base font-bold text-zinc-100">{sfxCount}</div>
+            <p className="text-[9px] text-zinc-500 truncate">Звуковые SFX</p>
+          </div>
+
+          <div className="p-2.5 bg-zinc-950 border border-amber-500/30 bg-amber-950/10 rounded-xl space-y-0.5">
+            <div className="flex items-center justify-between text-amber-300">
+              <span className="font-semibold text-[10px] truncate">systems/</span>
+              <Swords className="w-3.5 h-3.5 text-amber-400" />
+            </div>
+            <div className="text-base font-bold text-amber-200">{systemsCount}</div>
+            <p className="text-[9px] text-amber-400/70 truncate">Ролевые правила</p>
+          </div>
+
+          <div className="p-2.5 bg-zinc-950 border border-purple-500/30 bg-purple-950/10 rounded-xl space-y-0.5">
+            <div className="flex items-center justify-between text-purple-300">
+              <span className="font-semibold text-[10px] truncate">lore/</span>
+              <BookOpen className="w-3.5 h-3.5 text-purple-400" />
+            </div>
+            <div className="text-base font-bold text-purple-200">{loreCount}</div>
+            <p className="text-[9px] text-purple-400/70 truncate">Статьи и НИПы</p>
+          </div>
+
+          <div className="p-2.5 bg-zinc-950 border border-indigo-500/30 bg-indigo-950/10 rounded-xl space-y-0.5">
+            <div className="flex items-center justify-between text-indigo-300">
+              <span className="font-semibold text-[10px] truncate">worlds/</span>
+              <Globe className="w-3.5 h-3.5 text-indigo-400" />
+            </div>
+            <div className="text-base font-bold text-indigo-200">{worldsCount}</div>
+            <p className="text-[9px] text-indigo-400/70 truncate">Миры & Сеттинги</p>
+          </div>
+
+          <div className="p-2.5 bg-zinc-950 border border-emerald-500/40 bg-emerald-950/20 rounded-xl space-y-0.5">
+            <div className="flex items-center justify-between text-emerald-300">
+              <span className="font-semibold text-[10px] truncate">ВСЕГО</span>
+              <Database className="w-3.5 h-3.5 text-emerald-400" />
+            </div>
+            <div className="text-base font-bold text-emerald-200">{totalCount}</div>
+            <p className="text-[9px] text-emerald-400/80 truncate">Файлов & Записей</p>
+          </div>
+        </div>
+
+        {/* Navigation Tabs Bar */}
+        <div className="flex items-center space-x-1.5 border-b border-zinc-800 pb-2 overflow-x-auto custom-scrollbar">
+          <button
+            onClick={() => setActiveTab('systems')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer shrink-0 ${
+              activeTab === 'systems'
+                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
+                : 'bg-zinc-950 text-zinc-400 hover:text-zinc-200 border border-zinc-850'
+            }`}
+          >
+            <Swords className="w-3.5 h-3.5 text-amber-400" />
+            <span>Ролевые системы (`systems/`)</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('lore')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer shrink-0 ${
+              activeTab === 'lore'
+                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-sm'
+                : 'bg-zinc-950 text-zinc-400 hover:text-zinc-200 border border-zinc-850'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5 text-purple-400" />
+            <span>Лор и Энциклопедия (`lore/`)</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('worlds')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer shrink-0 ${
+              activeTab === 'worlds'
+                ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shadow-sm'
+                : 'bg-zinc-950 text-zinc-400 hover:text-zinc-200 border border-zinc-850'
+            }`}
+          >
+            <Globe className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Миры и Сеттинги (`worlds/`)</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('assets')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer shrink-0 ${
+              activeTab === 'assets'
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
+                : 'bg-zinc-950 text-zinc-400 hover:text-zinc-200 border border-zinc-850'
+            }`}
+          >
+            <Folder className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Карты и Медиа (`maps/`, `music/`)</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('backup')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer shrink-0 ${
+              activeTab === 'backup'
+                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
+                : 'bg-zinc-950 text-zinc-400 hover:text-zinc-200 border border-zinc-850'
+            }`}
+          >
+            <Save className="w-3.5 h-3.5 text-cyan-400" />
+            <span>Снимки и Бэкап (`data/`)</span>
+          </button>
         </div>
 
         {/* Progress or Notification Message */}
@@ -383,108 +604,379 @@ export const UnifiedAssetFolderModal: React.FC<Props> = ({
           </div>
         )}
 
-        {/* Folder Stats Dashboard */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="p-3.5 bg-zinc-950 border border-zinc-800/80 rounded-xl space-y-1">
-            <div className="flex items-center justify-between text-zinc-400">
-              <span className="font-medium text-[11px]">maps/ (Карты)</span>
-              <MapIcon className="w-4 h-4 text-amber-400" />
-            </div>
-            <div className="text-xl font-bold text-zinc-100">{syncState.stats.mapsCount}</div>
-            <p className="text-[10px] text-zinc-500 font-mono">
-              Категорий: {syncState.stats.mapCategoriesCount || session.mapCategories?.length || 1}
-            </p>
-          </div>
+        {/* TAB 1: RPG SYSTEMS SELECTION & DATA ENGINE */}
+        {activeTab === 'systems' && <SystemSelectorSection />}
 
-          <div className="p-3.5 bg-zinc-950 border border-zinc-800/80 rounded-xl space-y-1">
-            <div className="flex items-center justify-between text-zinc-400">
-              <span className="font-medium text-[11px]">props/ (Объекты)</span>
-              <Box className="w-4 h-4 text-amber-400" />
-            </div>
-            <div className="text-xl font-bold text-zinc-100">{syncState.stats.propsCount}</div>
-            <p className="text-[10px] text-zinc-500 font-mono">Токены и декор</p>
-          </div>
+        {/* TAB 2: LORE & WIKI ENCYCLOPEDIA */}
+        {activeTab === 'lore' && (
+          <div className="space-y-3">
+            {/* Data & Content Management Header Bar */}
+            <div className="p-3.5 bg-zinc-950 border border-purple-500/30 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-inner">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 bg-purple-500/20 border border-purple-500/40 text-purple-300 rounded-xl shrink-0">
+                  <Database className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-xs text-purple-200">
+                    Управление данными и структурой лора (`assets/lore/`)
+                  </h3>
+                  <p className="text-[11px] text-zinc-400">
+                    Сканирование диска, импорт книг мира (PDF/TXT/XML) и принудительный перепарсинг сущностей
+                  </p>
+                </div>
+              </div>
 
-          <div className="p-3.5 bg-zinc-950 border border-zinc-800/80 rounded-xl space-y-1">
-            <div className="flex items-center justify-between text-zinc-400">
-              <span className="font-medium text-[11px]">music/ (Музыка)</span>
-              <Music className="w-4 h-4 text-cyan-400" />
-            </div>
-            <div className="text-xl font-bold text-zinc-100">{syncState.stats.tracksCount}</div>
-            <p className="text-[10px] text-zinc-500 font-mono">Фоновые треки</p>
-          </div>
+              <div className="flex items-center space-x-2 flex-wrap gap-1.5">
+                <select
+                  value={selectedLoreWorldId}
+                  onChange={(e) => setSelectedLoreWorldId(e.target.value)}
+                  className="px-2.5 py-1.5 bg-zinc-900 border border-zinc-700 text-zinc-200 font-semibold text-xs rounded-xl focus:outline-none focus:border-purple-400 cursor-pointer"
+                >
+                  {DEFAULT_WORLDS.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.name}
+                    </option>
+                  ))}
+                </select>
 
-          <div className="p-3.5 bg-zinc-950 border border-zinc-800/80 rounded-xl space-y-1">
-            <div className="flex items-center justify-between text-zinc-400">
-              <span className="font-medium text-[11px]">sfx/ (Звуки SFX)</span>
-              <Volume2 className="w-4 h-4 text-emerald-400" />
-            </div>
-            <div className="text-xl font-bold text-zinc-100">{syncState.stats.sfxCount}</div>
-            <p className="text-[10px] text-zinc-500 font-mono">Звуковые эффекты</p>
-          </div>
-        </div>
+                <button
+                  onClick={async () => {
+                    setLoading(true);
+                    setScanProgress(`Синхронизация папки лора для мира «${selectedLoreWorldId}»...`);
+                    try {
+                      await worldLoreService.scanAndSyncFolder(selectedLoreWorldId, false);
+                      await diskAssetAutoSync.manualSync();
+                      setStatusMessage({
+                        text: `Папка лора «${selectedLoreWorldId}» успешно обновлена!`,
+                        type: 'success',
+                      });
+                    } catch (e: any) {
+                      setStatusMessage({ text: `Ошибка обновления папки: ${e.message}`, type: 'error' });
+                    } finally {
+                      setLoading(false);
+                      setScanProgress('');
+                    }
+                  }}
+                  disabled={loading}
+                  className="px-3 py-1.5 bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/40 font-bold rounded-xl text-xs flex items-center space-x-1 transition-all cursor-pointer disabled:opacity-50"
+                  title="Сканировать локальную папку лора и загрузить новые файлы"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 text-blue-400 ${loading ? 'animate-spin' : ''}`} />
+                  <span>Обновить папку</span>
+                </button>
 
-        {/* Sync Mode Information Note */}
-        <div className="p-3.5 bg-zinc-900/60 border border-zinc-800/80 rounded-xl flex items-start space-x-3 text-xs text-zinc-300">
-          <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-          <div className="space-y-0.5">
-            <span className="font-semibold text-zinc-200">Ручная синхронизация контента:</span>
-            <p className="text-[11px] text-zinc-400">
-              Привязанная папка сохраняется между перезапусками приложения. Когда вы добавляете новые карты, звуки или токены на диск — просто нажмите зелёную кнопку «Обновить контент» или кнопку синхронизации в верхней панели.
-            </p>
-          </div>
-        </div>
+                <button
+                  onClick={() => {
+                    setReparseTargetWorldId(selectedLoreWorldId);
+                    setIsConfirmReparseOpen(true);
+                  }}
+                  disabled={loading}
+                  className="px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 font-bold rounded-xl text-xs flex items-center space-x-1 transition-all cursor-pointer disabled:opacity-50"
+                  title="Удалить распарсенную структуру мира и обработать исходники с нуля"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Перепарсить с нуля</span>
+                </button>
 
-        {/* Directory Upload Fallback */}
-        <div className="p-4 bg-zinc-950/80 border border-zinc-800 rounded-2xl space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 text-zinc-200 font-semibold text-xs">
-              <Upload className="w-4 h-4 text-amber-400" />
-              <span>Загрузка папки целиком (Резервный метод)</span>
+                <button
+                  onClick={() => setIsParserOpen(true)}
+                  className="px-3 py-1.5 bg-purple-600/30 hover:bg-purple-600/40 text-purple-200 border border-purple-500/40 font-bold rounded-xl text-xs flex items-center space-x-1 transition-all cursor-pointer"
+                  title="Импортировать файлы, книги и базы через универсальный парсер"
+                >
+                  <FileUp className="w-3.5 h-3.5 text-purple-300" />
+                  <span>Импорт Книг</span>
+                </button>
+              </div>
             </div>
-          </div>
-          <p className="text-[11px] text-zinc-400">
-            Если браузер не поддерживает прямой доступ к диску через API, вы можете перетащить или выбрать папку с ассетами вручную:
-          </p>
-          <div>
-            <label className="cursor-pointer inline-flex items-center space-x-2 px-3.5 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 rounded-xl text-xs font-semibold transition-all">
-              <Folder className="w-3.5 h-3.5 text-amber-400" />
-              <span>Импортировать папку с файлами</span>
-              <input
-                type="file"
-                // @ts-ignore
-                webkitdirectory=""
-                directory=""
-                multiple
-                onChange={handleDirectoryInputFallback}
-                className="hidden"
+
+            <div className="bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden min-h-[480px]">
+              <MasterLoreWikiPanel
+                onPlaceLoreOnCanvas={onPlaceLoreOnCanvas}
+                onPlaceImageOnCanvas={onPlaceImageOnCanvas}
               />
-            </label>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Save Session to Disk */}
-        <div className="p-4 bg-zinc-950 border border-zinc-800 rounded-2xl flex items-center justify-between shadow-inner">
-          <div className="space-y-0.5">
-            <h4 className="font-semibold text-xs text-zinc-100 flex items-center space-x-1.5">
-              <Save className="w-3.5 h-3.5 text-amber-400" />
-              <span>Сохранить снимок стола на диск</span>
-            </h4>
-            <p className="text-[11px] text-zinc-400">
-              Сохраняет все настройки, туман, сетку, рисунки и пропсы в файл сессии «data/Sessions/».
-            </p>
+        {/* TAB 3: WORLDS & SETTINGS MANAGER */}
+        {activeTab === 'worlds' && (
+          <div className="space-y-4">
+            <div className="p-4 bg-zinc-950 border border-zinc-800 rounded-2xl flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 rounded-xl">
+                  <Globe className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-zinc-100">Управление Мирами и Сеттингами (`assets/lore/`)</h3>
+                  <p className="text-[11px] text-zinc-400">
+                    Все зарегистрированные игровые вселенные, их папки на диске и структуры регионов
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsParserOpen(true)}
+                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-zinc-100 font-bold rounded-xl text-xs flex items-center space-x-1.5 transition-all cursor-pointer shadow-sm"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Загрузить книгу мира</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {DEFAULT_WORLDS.map((world) => {
+                const folderName = world.id.includes('faerun')
+                  ? 'Faerun_DND5e'
+                  : world.id.includes('eberron')
+                  ? 'Eberron_DND5e'
+                  : world.id.includes('night_city')
+                  ? 'Cyberpunk_RED'
+                  : world.id.includes('arkham')
+                  ? 'Call_of_Cthulhu'
+                  : 'Generic_Worlds';
+
+                return (
+                  <div
+                    key={world.id}
+                    className="p-4 bg-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded-2xl space-y-3 transition-all"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center space-x-2">
+                          <h4 className="font-bold text-xs text-zinc-100">{world.name}</h4>
+                          <span className="px-2 py-0.2 bg-zinc-800 text-amber-300 text-[10px] font-mono rounded border border-zinc-700">
+                            {world.systemId}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-zinc-400 font-mono">
+                          Путь: assets/lore/{folderName}/
+                        </p>
+                      </div>
+                      <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 text-[10px] font-semibold rounded-full border border-indigo-500/30 shrink-0">
+                        Сеттинг
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-zinc-300 leading-relaxed">{world.description}</p>
+
+                    {world.subWorlds && world.subWorlds.length > 0 && (
+                      <div className="pt-2 border-t border-zinc-800/80 space-y-1">
+                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                          Регионы и Города:
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {world.subWorlds.map((sub) => (
+                            <span
+                              key={sub.id}
+                              className="px-2 py-0.5 bg-zinc-900 border border-zinc-800 text-zinc-300 rounded text-[10px]"
+                            >
+                              📍 {sub.name}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="pt-2 border-t border-zinc-800/80 flex items-center justify-between flex-wrap gap-1">
+                      <div className="flex items-center space-x-1.5">
+                        <button
+                          onClick={async () => {
+                            setLoading(true);
+                            try {
+                              await worldLoreService.scanAndSyncFolder(world.id, false);
+                              await diskAssetAutoSync.manualSync();
+                              setStatusMessage({
+                                text: `Папка «${world.name}» успешно синхронизирована с диском!`,
+                                type: 'success',
+                              });
+                            } catch (e: any) {
+                              setStatusMessage({
+                                text: `Ошибка сканирования мира: ${e.message}`,
+                                type: 'error',
+                              });
+                            } finally {
+                              setLoading(false);
+                            }
+                          }}
+                          className="px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 border border-zinc-700 rounded-lg text-[11px] font-semibold flex items-center space-x-1 transition-all cursor-pointer"
+                          title="Сканировать новые файлы в папке"
+                        >
+                          <RefreshCw className="w-3 h-3 text-blue-400" />
+                          <span>Сканировать</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            setReparseTargetWorldId(world.id);
+                            setIsConfirmReparseOpen(true);
+                          }}
+                          className="px-2.5 py-1 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-500/30 rounded-lg text-[11px] font-semibold flex items-center space-x-1 transition-all cursor-pointer"
+                          title="Очистить структуру и заново перепарсить мир"
+                        >
+                          <RotateCcw className="w-3 h-3 text-rose-400" />
+                          <span>Перепарсить</span>
+                        </button>
+                      </div>
+
+                      <button
+                        onClick={() => {
+                          setSelectedLoreWorldId(world.id);
+                          setActiveTab('lore');
+                        }}
+                        className="px-2.5 py-1 bg-purple-950/40 hover:bg-purple-900/60 text-purple-300 border border-purple-500/30 rounded-lg text-[11px] font-semibold flex items-center space-x-1 transition-all cursor-pointer"
+                      >
+                        <span>В Вики</span>
+                        <ChevronRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-          <button
-            onClick={handleSaveSnapshot}
-            disabled={loading}
-            className="px-3.5 py-2 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50 text-zinc-100 border border-zinc-700 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all shadow-sm active:scale-95 cursor-pointer"
-          >
-            <ArrowDownToLine className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Сохранить в JSON</span>
-          </button>
-        </div>
+        )}
+
+        {/* TAB 4: GENERAL MEDIA ASSETS (Maps, Props, Music, SFX) */}
+        {activeTab === 'assets' && (
+          <div className="space-y-4">
+            {/* Sync Mode Information Note */}
+            <div className="p-3.5 bg-zinc-900/60 border border-zinc-800/80 rounded-xl flex items-start space-x-3 text-xs text-zinc-300">
+              <Sparkles className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <span className="font-semibold text-zinc-200">Синхронизация контента стола:</span>
+                <p className="text-[11px] text-zinc-400">
+                  Привязанная папка сохраняется между перезапусками приложения. Когда вы добавляете новые карты, звуки или токены на диск — просто нажмите зелёную кнопку «Обновить контент» в верхней панели.
+                </p>
+              </div>
+            </div>
+
+            {/* Directory Upload Fallback */}
+            <div className="p-4 bg-zinc-950/80 border border-zinc-800 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2 text-zinc-200 font-semibold text-xs">
+                  <Upload className="w-4 h-4 text-amber-400" />
+                  <span>Загрузка папки целиком (Резервный метод)</span>
+                </div>
+              </div>
+              <p className="text-[11px] text-zinc-400">
+                Если браузер не поддерживает прямой доступ к диску через API, вы можете перетащить или выбрать папку с ассетами вручную:
+              </p>
+              <div>
+                <label className="cursor-pointer inline-flex items-center space-x-2 px-3.5 py-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-200 rounded-xl text-xs font-semibold transition-all">
+                  <Folder className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Импортировать папку с файлами</span>
+                  <input
+                    type="file"
+                    // @ts-ignore
+                    webkitdirectory=""
+                    directory=""
+                    multiple
+                    onChange={handleDirectoryInputFallback}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 5: BACKUP & SESSIONS */}
+        {activeTab === 'backup' && (
+          <div className="space-y-4">
+            {/* Save Session to Disk */}
+            <div className="p-4 bg-zinc-950 border border-zinc-800 rounded-2xl flex items-center justify-between shadow-inner">
+              <div className="space-y-0.5">
+                <h4 className="font-semibold text-xs text-zinc-100 flex items-center space-x-1.5">
+                  <Save className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Сохранить снимок стола на диск</span>
+                </h4>
+                <p className="text-[11px] text-zinc-400">
+                  Сохраняет все настройки, туман, сетку, рисунки, выбранную систему, лор и пропсы в файл сессии «data/Sessions/».
+                </p>
+              </div>
+              <button
+                onClick={handleSaveSnapshot}
+                disabled={loading}
+                className="px-3.5 py-2 bg-zinc-900 hover:bg-zinc-800 disabled:opacity-50 text-zinc-100 border border-zinc-700 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all shadow-sm active:scale-95 cursor-pointer"
+              >
+                <ArrowDownToLine className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Сохранить в JSON</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Universal Data Parser & Import Modal */}
+      {isParserOpen && (
+        <UniversalDataParserModal
+          isOpen={isParserOpen}
+          onClose={() => setIsParserOpen(false)}
+          targetSystemId={systemContentService.getActiveSystemId()}
+          systems={systemContentService.getSystems()}
+          onImportComplete={async () => {
+            await diskAssetAutoSync.manualSync();
+          }}
+        />
+      )}
+
+      {/* Confirmation Modal for Force Re-parsing */}
+      {isConfirmReparseOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-zinc-900 border border-rose-500/50 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-5 space-y-4">
+            <div className="flex items-start space-x-3">
+              <div className="p-2.5 bg-rose-500/20 border border-rose-500/40 rounded-xl shrink-0">
+                <AlertTriangle className="w-6 h-6 text-rose-400" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-sm font-bold text-rose-200">
+                  Перепарсинг и сброс структуры мира
+                </h3>
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  Текущая распарсенная структура сущностей для мира{' '}
+                  <strong className="text-amber-300">{reparseTargetWorldId}</strong> будет полностью
+                  очищена на диске.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-zinc-300 space-y-1.5">
+              <div className="font-semibold text-rose-300 flex items-center space-x-1">
+                <span>⚠️ Пересоздание данных с нуля</span>
+              </div>
+              <p className="text-[11px] text-zinc-400 leading-normal">
+                Движок сервера удалит устаревшие файлы структурированного JSON и заново сгенерирует сущности из всех найденных книг и текстовых архивов.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end space-x-2 pt-2">
+              <button
+                onClick={() => setIsConfirmReparseOpen(false)}
+                disabled={loading}
+                className="px-3.5 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-semibold rounded-lg transition-all cursor-pointer"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={() => handleExecuteReparse(reparseTargetWorldId)}
+                disabled={loading}
+                className="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer shadow-lg disabled:opacity-50"
+              >
+                {loading ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Очистка и перепарсинг...</span>
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Удалить структуру и перепарсить</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </FloatingWindow>
   );
 };
-

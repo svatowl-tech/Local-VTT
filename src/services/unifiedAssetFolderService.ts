@@ -12,6 +12,8 @@ const CANONICAL_FOLDERS = [
   'props',
   'music',
   'sfx',
+  'systems',
+  'lore',
   'data',
 ] as const;
 
@@ -20,6 +22,8 @@ const DEFAULT_SUBFOLDERS: Record<string, string[]> = {
   props: ['Tokens', 'Decorations', 'Furniture', 'Effects'],
   music: ['Combat', 'Tavern', 'Exploration', 'Boss'],
   sfx: ['Magic', 'Combat', 'Monsters', 'Environment'],
+  systems: ['D&D_5e', 'Pathfinder_2e', 'Cyberpunk_RED', 'GURPS_4e', 'Call_of_Cthulhu'],
+  lore: ['Faerun_DND5e', 'Cyberpunk_RED', 'Call_of_Cthulhu', 'Eberron_DND5e', 'GURPS_4e', 'Generic_Worlds'],
   data: ['Sessions', 'Presets', 'Layers'],
 };
 
@@ -100,6 +104,10 @@ function getFolderReadmeText(folderName: string): string {
       return '=== ПАПКА МУЗЫКИ И САУНДТРЕКОВ ===\nПомещайте сюда фоновые треки (.mp3, .ogg, .wav, .m4a).\nКаждая подпапка (например, "Битва", "Таверна", "Исследование") автоматически станет плейлистом в аудиоплеере.';
     case 'sfx':
       return '=== ПАПКА ЗВУКОВЫХ ЭФФЕКТОВ (SFX) ===\nПомещайте сюда короткие звуки (.mp3, .wav, .ogg).\nПодпапки станут банками эффектов на звуковой панели (Soundboard).';
+    case 'systems':
+      return '=== ПАПКА ПРАВИЛ И МЕХАНИК (AETHERMAP SYSTEMS) ===\nПомещайте сюда бестиарии, справочники заклинаний, предметов и механических правил по системам (D&D 5e, Cyberpunk RED, Call of Cthulhu и др.).';
+    case 'lore':
+      return '=== ПАПКА ЛОРА МИРОВ И СЕТТИНГОВ (AETHERMAP WORLD LORE) ===\nПомещайте сюда книги, статьи, справочники географии, фракций, НИП и миров по сеттингам (Faerun, Cyberpunk, Call of Cthulhu и др.).\nФайлы в каждой подпапке автоматически привязываются к соответствующему миру.';
     case 'data':
       return '=== ПАПКА ДАННЫХ И СОХРАНЕНИЙ ===\nЗдесь хранятся файлы резервных копий сессий (.json), пресеты слоев и конфигурации.';
     default:
@@ -141,6 +149,8 @@ export async function scanDiskAssetDirectory(
   let sfxBanksSet = new Set<string>();
   let sfxCount = 0;
   let savedSessionsCount = 0;
+  let systemsSet = new Set<string>();
+  let systemFilesCount = 0;
 
   try {
     for await (const [name, entry] of rootHandle.entries()) {
@@ -163,6 +173,10 @@ export async function scanDiskAssetDirectory(
           const res = await countFilesAndSubfolders(entry);
           sfxCount += res.fileCount;
           res.subfolders.forEach((f) => sfxBanksSet.add(f));
+        } else if (lowerName === 'systems') {
+          const res = await countFilesAndSubfolders(entry);
+          systemFilesCount += res.fileCount;
+          res.subfolders.forEach((f) => systemsSet.add(f));
         } else if (lowerName === 'data') {
           const res = await countFilesAndSubfolders(entry);
           savedSessionsCount += res.fileCount;
@@ -186,6 +200,8 @@ export async function scanDiskAssetDirectory(
     sfxBanksCount: sfxBanksSet.size,
     sfxCount,
     savedSessionsCount,
+    systemsCount: systemsSet.size,
+    systemFilesCount,
     lastSyncedAt: Date.now(),
   };
 }

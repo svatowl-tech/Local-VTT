@@ -3,7 +3,7 @@ export type ObjectLayerType = 'background' | 'props' | 'overhead' | 'above-fog' 
 export interface MapItem {
   id: string;
   name: string;
-  type: 'image' | 'video';
+  type: 'image' | 'video' | 'card';
   url: string;
   thumbnailUrl?: string;
   width: number;
@@ -31,6 +31,15 @@ export interface MapItem {
   targetVaultMapName?: string;
   targetVaultThumbnailUrl?: string;
   portalBadgeText?: string;
+  // Interactive Content Card on Canvas (Monsters, Spells, Items, Tables, Rules)
+  isContentCard?: boolean;
+  contentCardData?: {
+    item: any; // SystemReferenceSearchItem
+    cardType?: string;
+    viewMode?: 'full' | 'compact' | 'minimal';
+    showGmNotes?: boolean;
+    customNotes?: string;
+  };
 }
 
 export interface CameraFrame {
@@ -289,6 +298,7 @@ export interface TabletopSessionState {
   layersConfig?: LayerStackConfig;
   tabs?: WorkspaceTab[];
   activeTabId?: string;
+  activeSystemId?: string;
   playerTransition?: PlayerTransitionConfig;
   playbackState: {
     isPlaying: boolean;
@@ -436,8 +446,13 @@ export interface UnifiedAssetFolderStats {
   sfxBanksCount: number;
   sfxCount: number;
   savedSessionsCount: number;
+  systemsCount?: number;
+  systemFilesCount?: number;
+  activeSystemId?: string;
   lastSyncedAt?: number;
 }
+
+export * from './types/systemDataTypes';
 
 export interface ParsedDiskAssetFolder {
   maps: Array<{ name: string; url: string; category: string; format: string; fileSize: number }>;

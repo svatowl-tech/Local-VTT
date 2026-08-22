@@ -12,6 +12,7 @@ pub mod noise;
 pub mod physics;
 pub mod spatial;
 pub mod sync;
+pub mod system_parser;
 pub mod types;
 
 use sync::SharedState;
@@ -43,7 +44,16 @@ pub fn run() {
             commands::snap_coordinates_to_grid,
             commands::process_elemental_clashes,
             commands::attach_effect_node,
-            commands::generate_procedural_mist
+            commands::generate_procedural_mist,
+            commands::parse_system_raw_data,
+            commands::parse_system_file,
+            commands::scan_and_parse_system_directory,
+            commands::import_parsed_entities_rust,
+            commands::search_system_reference,
+            commands::parse_lore_raw_data,
+            commands::save_lore_item_rust,
+            commands::delete_lore_item_rust,
+            commands::scan_lore_folder_incremental_rust
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { systemDirectoryEngine } from './systemDirectoryEngine';
 
 export interface DiskAssetMap {
   id: string;
@@ -98,6 +99,8 @@ export interface DiskScanResult {
   sfxBanks: string[];
   effects: DiskAssetEffect[];
   savedSessions: Array<{ filename: string; size: number; mtime: number }>;
+  systemsCount?: number;
+  systemFilesCount?: number;
   stats: {
     totalFiles: number;
     mapsCount: number;
@@ -106,6 +109,7 @@ export interface DiskScanResult {
     playlistsCount: number;
     sfxCount: number;
     effectsCount: number;
+    systemsCount?: number;
   };
 }
 
@@ -266,8 +270,18 @@ const SUBDIRECTORIES = {
   music: ['Combat', 'Tavern', 'Exploration', 'Boss', 'Dungeon', 'Ambient'],
   sfx: ['Combat', 'Magic', 'Monsters', 'Environment', 'Traps', 'Game'],
   effects: ['Fire', 'Water', 'Portals', 'Lightning', 'Weather'],
+  systems: ['D&D_5e', 'Pathfinder_2e', 'Cyberpunk_RED', 'GURPS_4e', 'Call_of_Cthulhu'],
+  lore: ['Faerun_DND5e', 'Cyberpunk_RED', 'Call_of_Cthulhu', 'Eberron_DND5e', 'GURPS_4e', 'Generic_Worlds'],
   data: ['Sessions', 'Presets', 'Layers'],
 };
+
+function fastHash(str: string): string {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 33) ^ str.charCodeAt(i);
+  }
+  return (hash >>> 0).toString(16);
+}
 
 export class AssetDirectoryEngine {
   private assetsRoot: string;
@@ -332,6 +346,8 @@ export class AssetDirectoryEngine {
         return '=== AETHERMAP ЗВУКОВЫЕ ЭФФЕКТЫ (SFX) ===\nПомещайте сюда звуки (.mp3, .wav, .ogg).\nПодпапки станут банками на звуковой панели (SFX Soundboard).';
       case 'effects':
         return '=== AETHERMAP АНИМИРОВАННЫЕ ЭФФЕКТЫ (VFX) ===\nПомещайте сюда анимированные видео-эффекты и спрайты (.webm, .mp4, .gif, .png).';
+      case 'systems':
+        return '=== AETHERMAP РОЛЕВЫЕ СИСТЕМЫ И ПРАВИЛА (TTRPG SYSTEMS) ===\nПомещайте сюда папки систем с файлами монстров, заклинаний, рас, классов, предметов и правил (.json, .yaml, .md).';
       case 'data':
         return '=== AETHERMAP СОХРАНЕНИЯ И ПРЕСЕТЫ ===\nЗдесь автоматически сохраняются сессии (.json).';
       default:
@@ -342,7 +358,11 @@ export class AssetDirectoryEngine {
   /**
    * Scans the disk folder and extracts all maps, props, tracks, sfx, and effects
    */
-  public scanDisk(): DiskScanResult {
+  public scanDisk(forceRescan: boolean = false): DiskScanResult {
+    if (!forceRescan && this.cachedScan && Date.now() - this.cachedScan.timestamp < 5000) {
+      return this.cachedScan;
+    }
+
     if (this.isScanning && this.cachedScan) {
       return this.cachedScan;
     }
@@ -582,10 +602,13 @@ export class AssetDirectoryEngine {
         });
       });
 
+      // 7. Systems Summary Scan
+      const systemsScan = systemDirectoryEngine.scanSystems();
+
       // Calculate Revision Hash
       const revision = crypto
         .createHash('sha256')
-        .update(`${totalFilesCount}-${totalMtimeSum}-${maps.length}-${props.length}-${playlists.length}-${sfx.length}`)
+        .update(`${totalFilesCount}-${totalMtimeSum}-${maps.length}-${props.length}-${playlists.length}-${sfx.length}-${systemsScan.totalSystemFilesCount}`)
         .digest('hex')
         .substring(0, 16);
 
@@ -604,14 +627,17 @@ export class AssetDirectoryEngine {
         sfxBanks: Array.from(sfxBanksSet),
         effects,
         savedSessions: savedSessions.sort((a, b) => b.mtime - a.mtime),
+        systemsCount: systemsScan.totalSystemsCount,
+        systemFilesCount: systemsScan.totalSystemFilesCount,
         stats: {
-          totalFiles: totalFilesCount,
+          totalFiles: totalFilesCount + systemsScan.totalSystemFilesCount,
           mapsCount: maps.length,
           propsCount: props.length,
           tracksCount: Array.from(playlistsMap.values()).reduce((acc, t) => acc + t.length, 0),
           playlistsCount: playlists.length,
           sfxCount: sfx.length,
           effectsCount: effects.length,
+          systemsCount: systemsScan.totalSystemsCount,
         },
       };
 

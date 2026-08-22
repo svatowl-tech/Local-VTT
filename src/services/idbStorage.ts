@@ -18,6 +18,8 @@ export interface PersistedFolderMeta {
     propsCount: number;
     sfxCount: number;
     effectsCount: number;
+    systemsCount?: number;
+    systemFilesCount?: number;
   };
 }
 

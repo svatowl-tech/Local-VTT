@@ -546,6 +546,44 @@ class InitiativeEngine {
     return newCombatant;
   }
 
+  public addSystemEntityToEncounter(item: {
+    id: string;
+    name: string;
+    stats?: any;
+    data?: any;
+    summary?: string;
+  }): InitiativeCombatant {
+    const data = item.data || {};
+    const stats = item.stats || data.stats || {};
+    const hp = typeof stats.hp === 'number' ? stats.hp : parseInt(data.hitPoints || stats.hp || '10', 10) || 10;
+    const ac = typeof stats.ac === 'number' ? stats.ac : parseInt(data.armorClass || stats.ac || '10', 10) || 10;
+    const dex = stats.dex ?? data.stats?.dex ?? 10;
+    const initBonus = Math.floor((dex - 10) / 2);
+
+    const existingCount = this.encounter.combatants.filter((c) => c.name.startsWith(item.name)).length;
+    const combatantName = existingCount > 0 ? `${item.name} #${existingCount + 1}` : item.name;
+
+    const newCombatant: InitiativeCombatant = {
+      id: `combatant-sys-${item.id}-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      entityId: item.id,
+      name: combatantName,
+      category: 'monster',
+      initiative: 0,
+      initBonus,
+      currentHp: hp,
+      maxHp: hp,
+      ac: ac,
+      avatar: '👾',
+      conditions: [],
+      notes: `${stats.cr || data.cr || 'CR 1/4'} • ${data.type || item.summary || 'Существо'}`,
+      isHidden: false,
+    };
+
+    this.encounter.combatants = [...this.encounter.combatants, newCombatant];
+    this.notify();
+    return newCombatant;
+  }
+
   public removeCombatant(combatantId: string): void {
     this.encounter.combatants = this.encounter.combatants.filter((c) => c.id !== combatantId);
     if (this.encounter.activeTurnIndex >= this.encounter.combatants.length) {

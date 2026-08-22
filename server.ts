@@ -29,6 +29,10 @@ import {
 } from './server/syncState';
 import { simplifyPoints, calculateSpellAreaMetrics } from './server/drawingEngine';
 import { assetDirectoryEngine } from './server/assetDirectoryEngine';
+import { systemDirectoryEngine } from './server/systemDirectoryEngine';
+import { universalParserEngine } from './server/parsers/universalParserEngine';
+import { loreParserEngine } from './server/parsers/loreParserEngine';
+import { loreDirectoryEngine } from './server/loreDirectoryEngine';
 import { streamFileWithRangeSupport } from './server/mediaStreamer';
 import { cullItemsInFrustum, SpatialItem } from './server/spatialEngine';
 import { evaluateRoll, simulateDistribution } from './server/diceEngine';
@@ -413,7 +417,7 @@ async function startServer() {
 
   // Rescan trigger
   app.post('/api/assets/rescan', (req, res) => {
-    const scan = assetDirectoryEngine.scanDisk();
+    const scan = assetDirectoryEngine.scanDisk(true);
     res.json({
       success: true,
       ...scan,
@@ -454,6 +458,391 @@ async function startServer() {
   app.get('/api/assets/sessions', (req, res) => {
     const scan = assetDirectoryEngine.scanDisk();
     res.json({ success: true, sessions: scan.savedSessions });
+  });
+
+  // --- TTRPG SYSTEMS RULES & CONTENT ENGINE ROUTES ---
+
+  // Get all detected RPG systems with metadata & category counts
+  app.get('/api/systems', (req, res) => {
+    try {
+      const scan = systemDirectoryEngine.scanSystems();
+      const session = getSessionState();
+      res.json({
+        success: true,
+        ...scan,
+        activeSystemId: session.activeSystemId || scan.activeSystemId,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to scan systems' });
+    }
+  });
+
+  // Get active system details and its categorized items
+  app.get('/api/systems/active', (req, res) => {
+    try {
+      const session = getSessionState();
+      const activeId = session.activeSystemId || systemDirectoryEngine.getActiveSystemId();
+      const scan = systemDirectoryEngine.scanSystems();
+      const activeSystem = scan.systems.find((s) => s.id === activeId) || scan.systems[0];
+      const items = activeSystem ? systemDirectoryEngine.getSystemCategoryItems(activeSystem.id) : [];
+      res.json({
+        success: true,
+        activeSystem,
+        items,
+        totalItems: items.length,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to get active system' });
+    }
+  });
+
+  // Set active system in session and engine
+  app.post('/api/systems/active', (req, res) => {
+    try {
+      const { systemId } = req.body;
+      if (!systemId || typeof systemId !== 'string') {
+        res.status(400).json({ error: 'Missing or invalid systemId' });
+        return;
+      }
+      systemDirectoryEngine.setActiveSystemId(systemId);
+      updateSessionState({ activeSystemId: systemId });
+      const scan = systemDirectoryEngine.scanSystems();
+      const activeSystem = scan.systems.find((s) => s.id === systemId);
+      const items = activeSystem ? systemDirectoryEngine.getSystemCategoryItems(systemId) : [];
+      res.json({
+        success: true,
+        activeSystemId: systemId,
+        activeSystem,
+        items,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to set active system' });
+    }
+  });
+
+  // --- WORLD LORE DISK & PARSER ENDPOINTS ---
+  app.get('/api/lore/list', async (req, res) => {
+    try {
+      const worldId = (req.query.worldId as string) || 'dnd5e_faerun';
+      const query = (req.query.query as string) || '';
+      const category = (req.query.category as string) || 'all';
+      const page = Number(req.query.page) || 1;
+      const limit = Number(req.query.limit) || 50;
+
+      const result = await loreDirectoryEngine.searchAndPaginateLore(worldId, query, category, page, limit);
+      res.json({ success: true, ...result });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to list lore' });
+    }
+  });
+
+  app.get('/api/lore/scan', async (req, res) => {
+    try {
+      const worldId = (req.query.worldId as string) || 'dnd5e_faerun';
+      const forceReparse = req.query.forceReparse === 'true';
+      const result = await loreDirectoryEngine.scanLoreDirectoryIncremental(worldId, forceReparse);
+      res.json({ success: true, ...result });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to scan lore directory' });
+    }
+  });
+
+  app.post('/api/lore/reparse', async (req, res) => {
+    try {
+      const { worldId } = req.body;
+      if (!worldId) {
+        res.status(400).json({ error: 'Missing worldId parameter' });
+        return;
+      }
+      const result = await loreDirectoryEngine.scanLoreDirectoryIncremental(worldId, true);
+      res.json({ success: true, ...result });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to reparse lore directory' });
+    }
+  });
+
+  app.post('/api/lore/save', (req, res) => {
+    try {
+      const { worldId, item } = req.body;
+      if (!worldId || !item) {
+        res.status(400).json({ error: 'Missing worldId or item' });
+        return;
+      }
+      const result = loreDirectoryEngine.saveLoreItemToDisk(worldId, item);
+      res.json({ success: result.success, filePath: result.filePath });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to save lore item' });
+    }
+  });
+
+  app.post('/api/lore/delete', (req, res) => {
+    try {
+      const { worldId, itemId } = req.body;
+      if (!worldId || !itemId) {
+        res.status(400).json({ error: 'Missing worldId or itemId' });
+        return;
+      }
+      const success = loreDirectoryEngine.deleteLoreItemFromDisk(worldId, itemId);
+      res.json({ success });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to delete lore item' });
+    }
+  });
+  app.get('/api/systems/:systemId/items', (req, res) => {
+    try {
+      const { systemId } = req.params;
+      const category = req.query.category as string | undefined;
+      const items = systemDirectoryEngine.getSystemCategoryItems(systemId, category);
+      res.json({
+        success: true,
+        systemId,
+        category: category || 'all',
+        items,
+        total: items.length,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to get system items' });
+    }
+  });
+
+  // Serve assets from systems folder (images, tokens, icons) safely with Range streaming support
+  app.get('/api/systems/asset', (req, res) => {
+    const assetPath = req.query.path as string;
+    if (!assetPath) {
+      res.status(400).send('Missing path parameter');
+      return;
+    }
+
+    const fs = require('fs');
+    const systemsRoot = systemDirectoryEngine.getSystemsRoot();
+    const safePath = path.normalize(path.join(systemsRoot, assetPath));
+
+    // Ensure safe path is within systemsRoot to prevent traversal attacks
+    if (!safePath.startsWith(systemsRoot)) {
+      res.status(403).send('Access Denied (Path traversal rejected)');
+      return;
+    }
+
+    if (!fs.existsSync(safePath)) {
+      res.status(404).send('System asset file not found');
+      return;
+    }
+
+    try {
+      streamFileWithRangeSupport(safePath, req, res);
+    } catch (err: any) {
+      res.status(500).send(`Streaming error: ${err.message || err}`);
+    }
+  });
+
+  // Full-text Master Reference Search across systems (Rust TS Fallback endpoint)
+  app.get('/api/systems/search', (req, res) => {
+    try {
+      const query = (req.query.q as string) || '';
+      const systemId = req.query.systemId as string | undefined;
+      const category = req.query.category as string | undefined;
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 60;
+
+      const result = systemDirectoryEngine.searchSystemReference({
+        query,
+        systemId,
+        category,
+        limit,
+      });
+
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Reference search failed' });
+    }
+  });
+
+  // Create a new custom system folder structure
+  app.post('/api/systems/create', (req, res) => {
+    try {
+      const { name, categories } = req.body;
+      if (!name || typeof name !== 'string') {
+        res.status(400).json({ error: 'System name is required' });
+        return;
+      }
+      const result = systemDirectoryEngine.createCustomSystem(name, Array.isArray(categories) ? categories : undefined);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to create custom system' });
+    }
+  });
+
+  // Universal Parser: Analyze and extract entities from uploaded files (JSON, PDF, Text, XML, YAML, CSV)
+  app.post('/api/systems/parse', upload.single('file'), async (req, res) => {
+    try {
+      let filename = 'data.json';
+      let rawBuffer: Buffer | undefined;
+      let rawText: string | undefined;
+      let parsedJson: any = undefined;
+      let targetSystemId = (req.body?.targetSystemId as string) || systemDirectoryEngine.getActiveSystemId();
+      let suggestedCategory = req.body?.suggestedCategory as string | undefined;
+
+      if (req.file) {
+        filename = req.file.originalname;
+        rawBuffer = req.file.buffer;
+        const ext = path.extname(filename).toLowerCase();
+        if (['.json', '.txt', '.md', '.markdown', '.yaml', '.yml', '.xml', '.gcs', '.csv', '.tsv'].includes(ext)) {
+          rawText = req.file.buffer.toString('utf8');
+        }
+      } else if (req.body) {
+        if (req.body.filename) filename = req.body.filename;
+        if (req.body.rawText) rawText = req.body.rawText;
+        if (req.body.json) parsedJson = req.body.json;
+        if (req.body.base64) {
+          rawBuffer = Buffer.from(req.body.base64, 'base64');
+        }
+      }
+
+      const parseResult = await universalParserEngine.parseInput({
+        filename,
+        rawBuffer,
+        rawText,
+        parsedJson,
+        targetSystemId,
+        suggestedCategory,
+      });
+
+      res.json(parseResult);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Parsing error' });
+    }
+  });
+
+  // Dedicated Lore & Worlds Parser: PDF, ZIP, EPUB, Wiki, JSON, Text
+  app.post('/api/systems/parse-lore', upload.single('file'), async (req, res) => {
+    try {
+      let filename = 'lore_doc.txt';
+      let rawBuffer: Buffer | undefined;
+      let rawText: string | undefined;
+      let targetWorldId = (req.body?.targetWorldId as string) || 'dnd5e_faerun';
+      let targetSystemId = (req.body?.targetSystemId as string) || 'dnd5e';
+
+      if (req.file) {
+        filename = req.file.originalname;
+        rawBuffer = req.file.buffer;
+        const ext = path.extname(filename).toLowerCase();
+        if (['.txt', '.md', '.markdown', '.wiki', '.mediawiki', '.json', '.yaml', '.yml', '.csv', '.html', '.htm'].includes(ext)) {
+          rawText = req.file.buffer.toString('utf8');
+        }
+      } else if (req.body) {
+        if (req.body.filename) filename = req.body.filename;
+        if (req.body.rawText) rawText = req.body.rawText;
+        if (req.body.base64) {
+          rawBuffer = Buffer.from(req.body.base64, 'base64');
+        }
+      }
+
+      const parseResult = await loreParserEngine.parseLoreFile({
+        filename,
+        rawBuffer,
+        rawText,
+        targetWorldId,
+        targetSystemId,
+      });
+
+      res.json(parseResult);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Lore parsing error' });
+    }
+  });
+
+  // Import parsed entities directly into the specified system folder
+  app.post('/api/systems/import-parsed', (req, res) => {
+    try {
+      const { systemId, entities } = req.body;
+      const targetSystem = systemId || systemDirectoryEngine.getActiveSystemId();
+      if (!Array.isArray(entities) || entities.length === 0) {
+        res.status(400).json({ error: 'No entities provided for import' });
+        return;
+      }
+
+      const systemsRoot = systemDirectoryEngine.getSystemsRoot();
+      const importResult = universalParserEngine.importEntitiesToSystem(systemsRoot, targetSystem, entities);
+
+      // Rescan systems on disk
+      const updatedScan = systemDirectoryEngine.scanSystems();
+
+      res.json({
+        success: true,
+        targetSystem,
+        ...importResult,
+        updatedScan,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to import entities' });
+    }
+  });
+
+  // One-step: Upload, parse and auto-import into active system
+  app.post('/api/systems/upload-and-import', upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        res.status(400).json({ error: 'No file uploaded' });
+        return;
+      }
+
+      const filename = req.file.originalname;
+      const rawBuffer = req.file.buffer;
+      const targetSystemId = (req.body?.targetSystemId as string) || systemDirectoryEngine.getActiveSystemId();
+      const suggestedCategory = req.body?.suggestedCategory as string | undefined;
+
+      let rawText: string | undefined;
+      const ext = path.extname(filename).toLowerCase();
+      if (['.json', '.txt', '.md', '.markdown', '.yaml', '.yml', '.xml', '.gcs', '.csv', '.tsv'].includes(ext)) {
+        rawText = req.file.buffer.toString('utf8');
+      }
+
+      const parseResult = await universalParserEngine.parseInput({
+        filename,
+        rawBuffer,
+        rawText,
+        targetSystemId,
+        suggestedCategory,
+      });
+
+      if (!parseResult.success || parseResult.entities.length === 0) {
+        res.status(400).json({
+          error: 'Не удалось извлечь сущности из файла',
+          parseResult,
+        });
+        return;
+      }
+
+      const systemsRoot = systemDirectoryEngine.getSystemsRoot();
+      const importResult = universalParserEngine.importEntitiesToSystem(systemsRoot, targetSystemId, parseResult.entities);
+      const updatedScan = systemDirectoryEngine.scanSystems();
+
+      res.json({
+        success: true,
+        sourceFormat: parseResult.sourceFormat,
+        formatDescription: parseResult.formatDescription,
+        totalEntities: parseResult.totalEntitiesFound,
+        importedCount: importResult.importedCount,
+        savedFiles: importResult.savedFiles,
+        updatedScan,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to upload and import' });
+    }
+  });
+
+  // Safely read/stream a specific system file
+  app.get('/api/systems/file/*', (req, res) => {
+    const relPath = req.params[0];
+    const safePath = systemDirectoryEngine.resolveSafeSystemFilePath(relPath);
+    if (!safePath) {
+      res.status(404).send('System file not found or path traversal rejected');
+      return;
+    }
+    try {
+      streamFileWithRangeSupport(safePath, req, res);
+    } catch (err: any) {
+      res.status(500).send(`Streaming error: ${err.message || err}`);
+    }
   });
 
   // --- VITE MIDDLEWARE SETUP ---

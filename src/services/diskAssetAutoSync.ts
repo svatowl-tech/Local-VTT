@@ -1,5 +1,6 @@
 import { MapItem, AudioPlaylist, SoundEffect } from '../types';
 import { audioEngine } from './audioEngine';
+import { worldLoreService, DEFAULT_WORLDS } from './worldLoreService';
 import {
   scanDiskAssetDirectory,
   loadAssetFolderContent,
@@ -37,6 +38,11 @@ export interface DiskSyncState {
     propsCount: number;
     sfxCount: number;
     effectsCount: number;
+    systemsCount?: number;
+    systemFilesCount?: number;
+    loreCount?: number;
+    worldsCount?: number;
+    totalCount?: number;
   };
   recentEvents: DiskSyncEvent[];
 }
@@ -59,13 +65,15 @@ class DiskAssetAutoSyncService {
   private mapsUpdateCallback: MapsUpdateCallback | null = null;
   private propsUpdateCallback: PropsUpdateCallback | null = null;
 
-  private stats = {
+  private stats: DiskSyncState['stats'] = {
     mapsCount: 0,
     mapCategoriesCount: 0,
     tracksCount: 0,
     propsCount: 0,
     sfxCount: 0,
     effectsCount: 0,
+    systemsCount: 0,
+    systemFilesCount: 0,
   };
 
   constructor() {
@@ -129,6 +137,8 @@ class DiskAssetAutoSyncService {
             propsCount: meta.stats.propsCount || 0,
             sfxCount: meta.stats.sfxCount || 0,
             effectsCount: meta.stats.effectsCount || 0,
+            systemsCount: meta.stats.systemsCount || 0,
+            systemFilesCount: meta.stats.systemFilesCount || 0,
           };
         }
         this.notify();
@@ -199,6 +209,9 @@ class DiskAssetAutoSyncService {
       // Also check server assets if backend is active
       await this.syncServerAssets();
 
+      // Enrich stats with lore, worlds, systems and total counts
+      await this.enrichStats();
+
       this.lastSyncedAt = Date.now();
 
       // Persist the updated metadata
@@ -222,6 +235,38 @@ class DiskAssetAutoSyncService {
     } finally {
       this.isSyncing = false;
       this.notify();
+    }
+  }
+
+  /**
+   * Enrich stats with lore, worlds, systems and total counts
+   */
+  private async enrichStats(): Promise<void> {
+    try {
+      const loreItems = await worldLoreService.getAllLoreItems();
+      const loreCount = loreItems.length;
+      const worldsCount = DEFAULT_WORLDS.length;
+      const systemsCount = this.stats.systemsCount || 5;
+      const systemFiles = this.stats.systemFilesCount || 0;
+
+      const totalCount =
+        (this.stats.mapsCount || 0) +
+        (this.stats.propsCount || 0) +
+        (this.stats.tracksCount || 0) +
+        (this.stats.sfxCount || 0) +
+        systemFiles +
+        loreCount +
+        worldsCount;
+
+      this.stats = {
+        ...this.stats,
+        systemsCount,
+        loreCount,
+        worldsCount,
+        totalCount,
+      };
+    } catch (e) {
+      console.warn('Enrich stats error:', e);
     }
   }
 
@@ -304,6 +349,8 @@ class DiskAssetAutoSyncService {
           propsCount: scanData.stats?.propsCount || scanData.props?.length || 0,
           sfxCount: scanData.stats?.sfxCount || scanData.sfx?.length || 0,
           effectsCount: scanData.stats?.effectsCount || scanData.effects?.length || 0,
+          systemsCount: scanData.stats?.systemsCount || 0,
+          systemFilesCount: scanData.stats?.systemFilesCount || 0,
         };
       }
 

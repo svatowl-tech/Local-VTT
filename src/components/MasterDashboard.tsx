@@ -9,6 +9,9 @@ import { MiniAudioDock } from './MiniAudioDock';
 import { InitiativeDashboardWidget } from './InitiativeDashboardWidget';
 import { DraggableResizablePanel } from './DraggableResizablePanel';
 import { SimsBuildModePanel } from './SimsBuildModePanel';
+import { MasterCompendiumPanel } from './systems/MasterCompendiumPanel';
+import { MasterLoreWikiPanel } from './lore/MasterLoreWikiPanel';
+import { WorldLoreItem } from '../types/worldLoreTypes';
 import { ToolSettingsFlyout } from './ToolSettingsFlyout';
 import { initiativeEngine } from '../services/initiativeEngine';
 import {
@@ -33,6 +36,8 @@ import {
   Lock,
   Swords,
   Package,
+  BookOpen,
+  Globe,
 } from 'lucide-react';
 
 interface Props {
@@ -139,6 +144,9 @@ export const MasterDashboard: React.FC<Props> = memo(({
       camera: false,
       fog: false,
       curtain: false,
+      vault: false,
+      reference: false,
+      lore: false,
     };
   });
 
@@ -285,6 +293,147 @@ export const MasterDashboard: React.FC<Props> = memo(({
     [session.camera, session.maps, session.activeMapId, onUpdateMaps]
   );
 
+  const handlePlaceCompendiumCardOnCanvas = useCallback(
+    (item: any) => {
+      const spawnX = session.camera ? Math.round(session.camera.x) : 0;
+      const spawnY = session.camera ? Math.round(session.camera.y) : 0;
+      // Stagger slightly so multiple placed cards don't exactly cover each other
+      const offset = (session.maps.filter((m) => m.isContentCard).length % 6) * 30;
+
+      const width = 380;
+      const height = 460;
+
+      const newCardItem: MapItem = {
+        id: `card-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        name: item.name,
+        type: 'card',
+        url: '',
+        thumbnailUrl: '',
+        width,
+        height,
+        aspectRatio: width / height,
+        position: {
+          x: spawnX - Math.round(width / 2) + offset,
+          y: spawnY - Math.round(height / 2) + offset,
+        },
+        scale: { x: 1, y: 1 },
+        rotation: 0,
+        zIndex: 60,
+        opacity: 1,
+        hash: 'card-' + Math.random().toString(36).substring(2, 8),
+        fileSize: 0,
+        format: 'png',
+        category: 'Справочник',
+        layer: 'props',
+        isContentCard: true,
+        contentCardData: item,
+      };
+
+      onUpdateMaps([...session.maps, newCardItem], newCardItem.id);
+    },
+    [session.camera, session.maps, onUpdateMaps]
+  );
+
+  const handlePlaceLoreCardOnCanvas = useCallback(
+    (item: WorldLoreItem) => {
+      const spawnX = session.camera ? Math.round(session.camera.x) : 0;
+      const spawnY = session.camera ? Math.round(session.camera.y) : 0;
+      const offset = (session.maps.filter((m) => m.isContentCard).length % 6) * 30;
+
+      const width = 420;
+      const height = 480;
+
+      const compendiumFormattedItem = {
+        id: item.id,
+        systemId: item.systemId,
+        systemName: item.worldName,
+        name: item.name,
+        originalName: item.originalName,
+        category: item.category,
+        format: 'LoreWiki',
+        summary: item.summary,
+        snippet: item.content,
+        score: 1,
+        matchType: 'lore',
+        tags: item.tags,
+        relativePath: 'lore',
+        data: item,
+      };
+
+      const newLoreCardItem: MapItem = {
+        id: `lore-card-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        name: item.name,
+        type: 'card',
+        url: '',
+        thumbnailUrl: '',
+        width,
+        height,
+        aspectRatio: width / height,
+        position: {
+          x: spawnX - Math.round(width / 2) + offset,
+          y: spawnY - Math.round(height / 2) + offset,
+        },
+        scale: { x: 1, y: 1 },
+        rotation: 0,
+        zIndex: 65,
+        opacity: 1,
+        hash: 'lore-' + Math.random().toString(36).substring(2, 8),
+        fileSize: 0,
+        format: 'png',
+        category: 'Лор Вики',
+        layer: 'props',
+        isContentCard: true,
+        contentCardData: {
+          item: compendiumFormattedItem,
+          cardType: 'lore',
+          viewMode: 'full',
+        },
+      };
+
+      onUpdateMaps([...session.maps, newLoreCardItem], newLoreCardItem.id);
+    },
+    [session.camera, session.maps, onUpdateMaps]
+  );
+
+  const handlePlaceImageOnCanvas = useCallback(
+    (imageUrl: string, title: string) => {
+      if (!imageUrl) return;
+      const spawnX = session.camera ? Math.round(session.camera.x) : 0;
+      const spawnY = session.camera ? Math.round(session.camera.y) : 0;
+      const offset = (session.maps.filter((m) => m.type === 'image').length % 6) * 30;
+
+      const width = 500;
+      const height = 500;
+
+      const newImageItem: MapItem = {
+        id: `img-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        name: title || 'Иллюстрация',
+        type: 'image',
+        url: imageUrl,
+        thumbnailUrl: imageUrl,
+        width,
+        height,
+        aspectRatio: 1,
+        position: {
+          x: spawnX - Math.round(width / 2) + offset,
+          y: spawnY - Math.round(height / 2) + offset,
+        },
+        scale: { x: 1, y: 1 },
+        rotation: 0,
+        zIndex: 50,
+        opacity: 1,
+        hash: 'img-' + Math.random().toString(36).substring(2, 8),
+        fileSize: 0,
+        format: 'png',
+        category: 'Иллюстрация',
+        layer: 'props',
+      };
+
+      onUpdateMaps([...session.maps, newImageItem], newImageItem.id);
+    },
+    [session.camera, session.maps, onUpdateMaps]
+  );
+
   const propsCount = session.maps.filter((m) => m.layer === 'props').length;
 
   return (
@@ -340,6 +489,7 @@ export const MasterDashboard: React.FC<Props> = memo(({
             onOpenMapLibrary={onOpenMapLibrary}
             onOpenUploadModal={onOpenUploadModal}
             onOpenSubmapTab={onOpenSubmapTab}
+            onOpenInitiative={onOpenInitiative}
             fogBrushRadius={toolSettings.brushSize * 2}
           />
 
@@ -507,6 +657,48 @@ export const MasterDashboard: React.FC<Props> = memo(({
             blackout={session.playerBlackout}
             onToggleBlackout={onTogglePlayerBlackout}
             onUpdateBlackout={onUpdatePlayerBlackout}
+          />
+        </DraggableResizablePanel>
+
+        {/* 8. Floating Panel: 📖 Справочник Мастера (Reference Compendium & Search) */}
+        <DraggableResizablePanel
+          id="panel_master_reference"
+          isOpen={openPanels.reference}
+          onClose={() => handleTogglePanel('reference')}
+          handleTitle="Справочник мастера (Compendium & Search)"
+          handleIcon={<BookOpen className="w-3.5 h-3.5" />}
+          defaultPosition={{ x: 180, y: 70 }}
+          defaultSize={{ width: 780, height: 560 }}
+          minWidth={480}
+          minHeight={320}
+          zIndex={35}
+        >
+          <MasterCompendiumPanel
+            onOpenUniversalParser={onOpenUnifiedAssets}
+            onOpenInitiative={onOpenInitiative}
+            onPlaceCardOnCanvas={handlePlaceCompendiumCardOnCanvas}
+          />
+        </DraggableResizablePanel>
+
+        {/* 9. Floating Panel: 🌐 Лор Вики и База Миров (World Lore & Wiki) */}
+        <DraggableResizablePanel
+          id="panel_master_lore"
+          isOpen={openPanels.lore}
+          onClose={() => handleTogglePanel('lore')}
+          handleTitle="Лор и Вики Миров (World Lore & Wiki)"
+          handleIcon={<Globe className="w-3.5 h-3.5" />}
+          defaultPosition={{ x: 220, y: 85 }}
+          defaultSize={{ width: 820, height: 580 }}
+          minWidth={520}
+          minHeight={340}
+          zIndex={36}
+        >
+          <MasterLoreWikiPanel
+            onPlaceLoreOnCanvas={handlePlaceLoreCardOnCanvas}
+            onPlaceImageOnCanvas={handlePlaceImageOnCanvas}
+            onOpenRuleItemInCompendium={(ruleId) => {
+              if (!openPanels.reference) handleTogglePanel('reference');
+            }}
           />
         </DraggableResizablePanel>
         </div>

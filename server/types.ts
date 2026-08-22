@@ -243,6 +243,7 @@ export interface TabletopSessionState {
   sessionToken: string;
   updatedAt: number;
   maps: MapItem[];
+  mapCategories?: string[];
   activeMapId: string | null;
   camera: CameraFrame;
   fog: FogState;
@@ -256,6 +257,7 @@ export interface TabletopSessionState {
   layersConfig?: LayerStackConfig;
   tabs?: WorkspaceTab[];
   activeTabId?: string;
+  activeSystemId?: string;
   playerTransition?: PlayerTransitionConfig;
   playbackState: {
     isPlaying: boolean;

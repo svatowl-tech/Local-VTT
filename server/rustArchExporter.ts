@@ -732,6 +732,14 @@ pub fn run() {
 `,
   },
   {
+    filename: 'lore_parser.rs',
+    path: 'src-tauri/src/system_parser/lore_parser.rs',
+    language: 'rust',
+    description: 'Rust High-Performance Lore & World Document Parser for PDF, ZIP, EPUB, Wikitext, JSON, and Text books.',
+    content: `// Rust High-Performance Lore & World Document Parser
+pub fn parse_lore_and_worlds_raw(...) -> UniversalParseResult { ... }`,
+  },
+  {
     filename: 'main.rs',
     path: 'src-tauri/src/main.rs',
     language: 'rust',

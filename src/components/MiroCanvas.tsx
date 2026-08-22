@@ -68,6 +68,7 @@ interface Props {
   onOpenMapLibrary?: () => void;
   onOpenUploadModal?: () => void;
   onOpenSubmapTab?: (portalItem: MapItem) => void;
+  onOpenInitiative?: () => void;
   fogBrushRadius: number;
 }
 
@@ -102,6 +103,7 @@ export const MiroCanvas: React.FC<Props> = memo(({
   onOpenMapLibrary,
   onOpenUploadModal,
   onOpenSubmapTab,
+  onOpenInitiative,
   fogBrushRadius,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -112,15 +114,22 @@ export const MiroCanvas: React.FC<Props> = memo(({
     position: ContextMenuPosition;
   } | null>(null);
 
-  const handleCardContextMenu = useCallback((e: React.MouseEvent, mapItem: MapItem) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onSelectMap(mapItem.id);
-    setContextMenu({
-      item: mapItem,
-      position: { x: e.clientX, y: e.clientY },
-    });
-  }, [onSelectMap]);
+  const handleCardContextMenu = useCallback(
+    (e: React.MouseEvent, mapItem: MapItem) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (hasRightClickDraggedRef.current) {
+        hasRightClickDraggedRef.current = false;
+        return;
+      }
+      onSelectMap(mapItem.id);
+      setContextMenu({
+        item: mapItem,
+        position: { x: e.clientX, y: e.clientY },
+      });
+    },
+    [onSelectMap]
+  );
 
   // Canvas pan & zoom state
   const [zoom, setZoom] = useState<number>(0.8);
@@ -141,6 +150,10 @@ export const MiroCanvas: React.FC<Props> = memo(({
   // Dragging refs for 60fps RAF operations without lag
   const isPanningRef = useRef<boolean>(false);
   const panStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const isRightClickPanRef = useRef<boolean>(false);
+  const rightClickStartPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const hasRightClickDraggedRef = useRef<boolean>(false);
+  const [isRightClickPanning, setIsRightClickPanning] = useState<boolean>(false);
 
   const isDraggingCameraRef = useRef<boolean>(false);
   const isResizingCameraRef = useRef<string | null>(null);
@@ -210,6 +223,17 @@ export const MiroCanvas: React.FC<Props> = memo(({
 
   // Mouse down handler
   const handleMouseDown = (e: React.MouseEvent) => {
+    // RMB (e.button === 2) triggers instant canvas pan across ALL active tools
+    if (e.button === 2) {
+      isPanningRef.current = true;
+      isRightClickPanRef.current = true;
+      rightClickStartPosRef.current = { x: e.clientX, y: e.clientY };
+      hasRightClickDraggedRef.current = false;
+      panStartRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+      setIsRightClickPanning(true);
+      return;
+    }
+
     if (e.button === 1 || activeTool === 'pan') {
       isPanningRef.current = true;
       panStartRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
@@ -330,6 +354,15 @@ export const MiroCanvas: React.FC<Props> = memo(({
       rafIdRef.current = null;
 
       if (isPanningRef.current) {
+        if (isRightClickPanRef.current) {
+          const dist = Math.hypot(
+            clientX - rightClickStartPosRef.current.x,
+            clientY - rightClickStartPosRef.current.y
+          );
+          if (dist > 4) {
+            hasRightClickDraggedRef.current = true;
+          }
+        }
         setPan({
           x: Math.round(clientX - panStartRef.current.x),
           y: Math.round(clientY - panStartRef.current.y),
@@ -545,6 +578,8 @@ export const MiroCanvas: React.FC<Props> = memo(({
 
   const handleMouseUp = () => {
     isPanningRef.current = false;
+    isRightClickPanRef.current = false;
+    setIsRightClickPanning(false);
     isDraggingCameraRef.current = false;
     isResizingCameraRef.current = null;
     draggingMapIdRef.current = null;
@@ -589,6 +624,7 @@ export const MiroCanvas: React.FC<Props> = memo(({
 
   // Map drag & transformation triggers
   const handleStartMapDrag = (e: React.MouseEvent, mapItem: MapItem) => {
+    if (e.button !== 0) return; // Only left mouse button initiates object dragging
     if (activeTool !== 'select') return;
     onSelectMap(mapItem.id);
     if (
@@ -724,12 +760,16 @@ export const MiroCanvas: React.FC<Props> = memo(({
           onQuickUpdate={onQuickUpdateMapItem}
           onContextMenu={handleCardContextMenu}
           onOpenSubmapTab={onOpenSubmapTab}
+          onDeleteMap={onDeleteMap}
+          onOpenInitiative={onOpenInitiative}
         />
       ));
   };
 
   const getCursorClass = () => {
-    if (activeTool === 'pan') return 'cursor-grab active:cursor-grabbing';
+    if (isRightClickPanning || activeTool === 'pan') {
+      return 'cursor-grab active:cursor-grabbing';
+    }
     if (activeTool === 'brush' || activeTool === 'highlighter') return 'cursor-crosshair';
     if (activeTool === 'eraser') return 'cursor-crosshair';
     if (activeTool === 'laser') return 'cursor-crosshair';
@@ -777,6 +817,37 @@ export const MiroCanvas: React.FC<Props> = memo(({
           layer: data.layer || 'props',
         };
         onUpdateMaps([...maps, newProp]);
+      } else if (data && data.type === 'aethermap_compendium_card' && data.item) {
+        const dropPos = screenToWorkspace(e.clientX, e.clientY);
+        const item = data.item;
+        const width = 380;
+        const height = 460;
+        const newCardMapItem: MapItem = {
+          id: `card-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+          name: item.name,
+          type: 'card',
+          url: '',
+          thumbnailUrl: '',
+          width,
+          height,
+          aspectRatio: width / height,
+          position: {
+            x: Math.round(dropPos.x - width / 2),
+            y: Math.round(dropPos.y - height / 2),
+          },
+          scale: { x: 1, y: 1 },
+          rotation: 0,
+          zIndex: 60,
+          opacity: 1,
+          hash: 'card-' + Math.random().toString(36).substring(2, 8),
+          fileSize: 0,
+          format: 'png',
+          category: 'Справочник',
+          layer: 'props',
+          isContentCard: true,
+          contentCardData: item,
+        };
+        onUpdateMaps([...maps, newCardMapItem]);
       }
     } catch (err) {
       console.warn('Drop prop error:', err);
@@ -790,6 +861,12 @@ export const MiroCanvas: React.FC<Props> = memo(({
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        if (hasRightClickDraggedRef.current) {
+          hasRightClickDraggedRef.current = false;
+        }
+      }}
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       className={`w-full h-full relative overflow-hidden bg-zinc-950 select-none ${getCursorClass()}`}
