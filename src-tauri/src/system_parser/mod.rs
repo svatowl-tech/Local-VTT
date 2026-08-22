@@ -26,7 +26,7 @@ pub fn parse_raw_system_data(
     let (format_id, format_desc) = detector::detect_source_format(raw_data, filename, format_hint);
 
     let mut entities: Vec<UniversalParsedEntity> = Vec::new();
-    let errors: Vec<String> = Vec::new();
+    let mut errors: Vec<String> = Vec::new();
     let warnings: Vec<String> = Vec::new();
 
     match format_id {
