@@ -321,7 +321,7 @@ pub fn search_reference_data(
                 score,
                 match_type,
                 tags: item.tags,
-                relative_path: item.relativePath,
+                relative_path: item.relative_path,
                 stats,
                 actions,
                 traits,

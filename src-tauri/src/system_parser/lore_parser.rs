@@ -133,7 +133,7 @@ fn get_default_world_id(sys_id: &str) -> &'static str {
 }
 
 fn detect_fine_category(title: &str, text: &str) -> (String, String) {
-    let combined = (title.to_string() + " " + text.chars().take(1000).collect::<String>()).to_lowercase();
+    let combined = (title.to_string() + " " + &text.chars().take(1000).collect::<String>()).to_lowercase();
 
     // Fine-grained category detection
     let category = if combined.contains("континент") || combined.contains("империя") || combined.contains("королевство") || combined.contains("страна") || combined.contains("continent") || combined.contains("empire") || combined.contains("kingdom") {
