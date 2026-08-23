@@ -516,7 +516,22 @@ class WorldLoreService {
     return this.memoryLoreItems.get(id) || null;
   }
 
-    public async saveItem(item: WorldLoreItem): Promise<WorldLoreItem> {
+  
+  public async addBatchItems(items: WorldLoreItem[]): Promise<void> {
+    await this.init();
+    let changed = false;
+    for (const item of items) {
+      if (!this.memoryLoreItems.has(item.id)) {
+        this.memoryLoreItems.set(item.id, item);
+        changed = true;
+      }
+    }
+    if (changed) {
+      await this.persist();
+    }
+  }
+
+  public async saveItem(item: WorldLoreItem): Promise<WorldLoreItem> {
     await this.init();
     const updated: WorldLoreItem = {
       ...item,

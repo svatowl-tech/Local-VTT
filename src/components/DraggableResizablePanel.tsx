@@ -24,6 +24,7 @@ interface Props {
   handleIcon?: React.ReactNode;
   zIndex?: number;
   showReset?: boolean;
+  noPadding?: boolean;
 }
 
 const STORAGE_PREFIX = 'aethermap_floating_bounds_';
@@ -321,7 +322,7 @@ export const DraggableResizablePanel: React.FC<Props> = ({
       </div>
 
       {/* Main Content Area (Fluid, no crop on resize) */}
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 custom-scrollbar flex flex-col">
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden ${noPadding ? '' : 'p-3'} custom-scrollbar flex flex-col">
         {children}
       </div>
 

@@ -12,6 +12,7 @@ import { SimsBuildModePanel } from './SimsBuildModePanel';
 import { MasterCompendiumPanel } from './systems/MasterCompendiumPanel';
 import { MasterLoreWikiPanel } from './lore/MasterLoreWikiPanel';
 import { WorldLoreItem } from '../types/worldLoreTypes';
+import { DungeonGeneratorPanel } from './DungeonGeneratorPanel';
 import { ToolSettingsFlyout } from './ToolSettingsFlyout';
 import { initiativeEngine } from '../services/initiativeEngine';
 import {
@@ -140,6 +141,7 @@ export const MasterDashboard: React.FC<Props> = memo(({
     } catch (e) {}
     return {
       initiative: false,
+      dungeon: false,
       sims: false,
       camera: false,
       fog: false,
@@ -553,6 +555,37 @@ export const MasterDashboard: React.FC<Props> = memo(({
           </div>
         )}
 
+
+        {openPanels.dungeon && (
+          <DungeonGeneratorPanel
+            onClose={() => handleTogglePanel('dungeon')}
+            onImportDungeon={(mapItem) => {
+              const spawnX = session.camera ? Math.round(session.camera.x) : 0;
+              const spawnY = session.camera ? Math.round(session.camera.y) : 0;
+              const adjustedMapItem = {
+                ...mapItem,
+                position: {
+                  x: spawnX + (mapItem.position?.x || 0),
+                  y: spawnY + (mapItem.position?.y || 0)
+                }
+              };
+              onUpdateMaps([...session.maps, adjustedMapItem], adjustedMapItem.id);
+            }}
+            onImportMultipleMaps={(mapItems) => {
+              if (!mapItems || mapItems.length === 0) return;
+              const spawnX = session.camera ? Math.round(session.camera.x) : 0;
+              const spawnY = session.camera ? Math.round(session.camera.y) : 0;
+              const adjustedMaps = mapItems.map((m) => ({
+                ...m,
+                position: {
+                  x: spawnX + (m.position?.x || 0),
+                  y: spawnY + (m.position?.y || 0)
+                }
+              }));
+              onUpdateMaps([...session.maps, ...adjustedMaps], adjustedMaps[0]?.id || session.activeMapId);
+            }}
+          />
+        )}
         {/* 3. Floating Panel: ⚔️ Бой / Очередь Инициативы */}
         <DraggableResizablePanel
           id="panel_initiative"

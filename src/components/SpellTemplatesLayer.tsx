@@ -54,8 +54,8 @@ export const SpellTemplatesLayer: React.FC<Props> = memo(({
 
       const startMouseX = e.clientX;
       const startMouseY = e.clientY;
-      const originX = template.position.x;
-      const originY = template.position.y;
+      const originX = (template.position?.x ?? 0);
+      const originY = (template.position?.y ?? 0);
       const initialAngle = template.angle || 0;
 
       const handleWindowMouseMove = (moveEv: MouseEvent) => {

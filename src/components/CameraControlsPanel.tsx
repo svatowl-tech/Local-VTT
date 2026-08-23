@@ -136,8 +136,8 @@ export const CameraControlsPanel: React.FC<Props> = ({
 
   const centerOnActiveMap = () => {
     if (!activeMap) return;
-    const mapCenterX = activeMap.position.x + (activeMap.width * activeMap.scale.x) / 2;
-    const mapCenterY = activeMap.position.y + (activeMap.height * activeMap.scale.y) / 2;
+    const mapCenterX = (activeMap.position?.x ?? 0) + (activeMap.width * (activeMap.scale?.x ?? 1)) / 2;
+    const mapCenterY = (activeMap.position?.y ?? 0) + (activeMap.height * (activeMap.scale?.y ?? 1)) / 2;
 
     onUpdateCamera({
       x: Math.round(mapCenterX - camera.width / 2),

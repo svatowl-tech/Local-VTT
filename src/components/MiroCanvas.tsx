@@ -540,8 +540,8 @@ export const MiroCanvas: React.FC<Props> = memo(({
         const activeItem = maps.find((m) => m.id === targetId);
         if (activeItem) {
           const center = {
-            x: activeItem.position.x + (activeItem.width * activeItem.scale.x) / 2,
-            y: activeItem.position.y + (activeItem.height * activeItem.scale.y) / 2,
+            x: (activeItem.position?.x ?? 0) + (activeItem.width * (activeItem.scale?.x ?? 1)) / 2,
+            y: (activeItem.position?.y ?? 0) + (activeItem.height * (activeItem.scale?.y ?? 1)) / 2,
           };
           const angle = Math.atan2(mousePos.y - center.y, mousePos.x - center.x) * (180 / Math.PI);
           const updated = maps.map((m) =>
@@ -719,7 +719,7 @@ export const MiroCanvas: React.FC<Props> = memo(({
   const renderMapList = (items: MapItem[]) => {
     // Frustum Spatial Culling for high-performance with dozens or hundreds of maps
     let displayItems = items;
-    if (items.length > 20 && containerRef.current) {
+    if ((items.length > 5 || maps.length > 10) && containerRef.current) {
       const containerW = containerRef.current.clientWidth || window.innerWidth;
       const containerH = containerRef.current.clientHeight || window.innerHeight;
       const margin = 600; // Extra buffer around viewport for smooth panning

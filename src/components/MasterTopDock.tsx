@@ -8,6 +8,7 @@ import {
   FolderArchive,
   BookOpen,
   Globe,
+  Dices,
 } from 'lucide-react';
 
 export interface OpenPanelsState {
@@ -16,6 +17,7 @@ export interface OpenPanelsState {
   camera: boolean;
   fog: boolean;
   curtain: boolean;
+  dungeon: boolean;
   vault: boolean;
   reference: boolean;
   lore: boolean;
@@ -104,7 +106,26 @@ export const MasterTopDock: React.FC<Props> = memo(({
         </span>
       </button>
 
-      {/* 3. Хранилище готовых карт (Map Vault) */}
+      
+      {/* 2.5 Рандомная генерация */}
+      <button
+        id="dock_btn_dungeon"
+        onClick={() => onTogglePanel('dungeon')}
+        className={`relative w-14 h-14 rounded-2xl flex flex-col items-center justify-center p-1 transition-all duration-200 group active:scale-95 shadow-lg ${
+          openPanels.dungeon
+            ? 'bg-amber-500/25 border-2 border-amber-400 text-amber-300 ring-2 ring-amber-500/30 scale-105 shadow-amber-500/20'
+            : 'bg-zinc-950/90 border border-amber-500/40 hover:border-amber-400 hover:bg-zinc-900 text-amber-400 hover:scale-105'
+        }`}
+        title="Генераторы карт"
+      >
+        <div className="w-6 h-6 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 group-hover:bg-amber-500 group-hover:text-zinc-950 transition-all duration-200 shadow-sm">
+          <Dices className="w-3.5 h-3.5" />
+        </div>
+        <span className="text-[9px] font-bold text-amber-300/90 group-hover:text-amber-300 tracking-tight mt-0.5 truncate max-w-[48px]">
+          Генератор
+        </span>
+      </button>
+{/* 3. Хранилище готовых карт (Map Vault) */}
       <button
         id="dock_btn_vault"
         onClick={() => onTogglePanel('vault')}

@@ -170,10 +170,10 @@ export const PlayerView: React.FC<Props> = memo(({ session }) => {
             key={mapItem.id}
             className={`absolute transform-gpu ${isPortal ? 'overflow-visible' : 'overflow-hidden'}`}
             style={{
-              left: `${mapItem.position.x}px`,
-              top: `${mapItem.position.y}px`,
-              width: `${mapItem.width * mapItem.scale.x}px`,
-              height: `${mapItem.height * mapItem.scale.y}px`,
+              left: `${mapItem.position?.x ?? 0}px`,
+              top: `${mapItem.position?.y ?? 0}px`,
+              width: `${mapItem.width * (mapItem.scale?.x ?? 1)}px`,
+              height: `${mapItem.height * (mapItem.scale?.y ?? 1)}px`,
               transform: `rotate(${mapItem.rotation}deg)`,
               zIndex: mapItem.zIndex,
               opacity: mapItem.opacity,

@@ -1,4 +1,8 @@
 import express from 'express';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+const execAsync = promisify(exec);
+
 import compression from 'compression';
 import path from 'path';
 import multer from 'multer';
@@ -39,6 +43,13 @@ import { evaluateRoll, simulateDistribution } from './server/diceEngine';
 import { computeDynamicLighting } from './server/lightingEngine';
 import { calculateOptimalGrid } from './server/gridEngine';
 import { calculateElementalClashes, smoothElementalTrail } from './server/elementalEngine';
+import { generateNPC } from './server/npcEngine';
+import { generateTreasure } from './server/treasureEngine';
+import { generateLoot, generateMerchantShop } from './server/lootShopEngine';
+import { generateTravelingMerchant } from './server/travelingMerchantEngine';
+import { generateStationaryShop } from './server/stationaryShopEngine';
+import { generateEquipment } from './server/equipmentGeneratorEngine';
+import { generateMagicItem } from './server/magicItemsEngine';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -53,8 +64,167 @@ async function startServer() {
   app.use(express.json({ limit: '50mb' }));
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-  // --- API ROUTES (BACKEND HEAVY COMPUTATIONS) ---
+  // --- API ROUTES (BACKEND HEAVY COMPUTATIONS & PROCEDURAL GENERATORS) ---
 
+  app.get('/api/npc/generate', (req, res) => {
+    try {
+      const {
+        race = 'human',
+        classType = 'fighter',
+        gender = 'male',
+        level = '1',
+        profession = 'random',
+        socialStatus = 'middle',
+        ageGroup = 'adult',
+        attitude = 'neutral'
+      } = req.query;
+      const result = generateNPC({
+        race: String(race),
+        classType: String(classType),
+        gender: String(gender),
+        level: parseInt(String(level), 10) || 1,
+        profession: String(profession),
+        socialStatus: String(socialStatus),
+        ageGroup: String(ageGroup),
+        attitude: String(attitude)
+      });
+      res.json({ success: true, text: result.text, raw: result.raw });
+    } catch (err) {
+      console.error("NPC Generation Error:", err);
+      res.status(500).json({ success: false, error: String(err) });
+    }
+  });
+
+  app.get('/api/treasure/generate', (req, res) => {
+    try {
+      const {
+        level = '1',
+        theme = 'classic',
+        container = 'chest_iron',
+        magicFocus = 'balanced',
+        trapOrHazard = 'none'
+      } = req.query;
+      const parsedLevel = parseInt(String(level), 10);
+      const safeLevel = (isNaN(parsedLevel) || parsedLevel < 1) ? 1 : Math.min(parsedLevel, 30);
+      
+      const result = generateTreasure({
+        level: safeLevel,
+        theme: String(theme),
+        container: String(container),
+        magicFocus: String(magicFocus),
+        trapOrHazard: String(trapOrHazard)
+      });
+      res.json({ success: true, text: result.text, raw: result.raw });
+    } catch (err) {
+      console.error("Treasure Generation Error:", err);
+      res.status(500).json({ success: false, error: String(err) });
+    }
+  });
+
+  app.get('/api/loot/generate', (req, res) => {
+    try {
+      const {
+        type = 'humanoid',
+        tier = 'low',
+        richness = 'standard',
+        condition = 'any'
+      } = req.query;
+      const result = generateLoot({
+        type: String(type),
+        tier: String(tier),
+        richness: String(richness),
+        condition: String(condition)
+      });
+      res.json({ success: true, text: result.text, raw: result.raw });
+    } catch (err) {
+      console.error("Loot Generation Error:", err);
+      res.status(500).json({ success: false, error: String(err) });
+    }
+  });
+
+  app.get('/api/merchant/generate', (req, res) => {
+    try {
+      const { shopType = 'general', archetype = 'peddler' } = req.query;
+      const result = generateTravelingMerchant({ archetype: String(archetype || shopType) });
+      res.json({ success: true, text: result.text, raw: result.raw });
+    } catch (err) {
+      console.error("Merchant Generation Error:", err);
+      res.status(500).json({ success: false, error: String(err) });
+    }
+  });
+
+  app.get('/api/traveling-merchant/generate', (req, res) => {
+    try {
+      const { archetype = 'random', region = 'random', itemCount = 'random', priceTier = 'random', attitude = 'random', race = 'random' } = req.query;
+      const result = generateTravelingMerchant({
+        archetype: String(archetype),
+        region: String(region),
+        itemCount: String(itemCount),
+        priceTier: String(priceTier),
+        attitude: String(attitude),
+        race: String(race)
+      });
+      res.json({ success: true, text: result.text, raw: result.raw });
+    } catch (err) {
+      console.error("Traveling Merchant Error:", err);
+      res.status(500).json({ success: false, error: String(err) });
+    }
+  });
+
+  app.get('/api/stationary-shop/generate', (req, res) => {
+    try {
+      const { shopType = 'random', wealthTier = 'modest', district = 'random', inventorySize = 'random', qualityTier = 'random', ownerTemper = 'random' } = req.query;
+      const result = generateStationaryShop({
+        shopType: String(shopType),
+        wealthTier: String(wealthTier),
+        district: String(district),
+        inventorySize: String(inventorySize),
+        qualityTier: String(qualityTier),
+        ownerTemper: String(ownerTemper)
+      });
+      res.json({ success: true, text: result.text, raw: result.raw });
+    } catch (err) {
+      console.error("Stationary Shop Error:", err);
+      res.status(500).json({ success: false, error: String(err) });
+    }
+  });
+
+  app.get('/api/equipment/generate', (req, res) => {
+    try {
+      const { category = 'random', hasProperties = 'random', quality = 'random', material = 'random', originStyle = 'random', priceBudget = 'random', propertyType = 'random' } = req.query;
+      const result = generateEquipment({
+        category: String(category),
+        hasProperties: String(hasProperties),
+        quality: String(quality),
+        material: String(material),
+        originStyle: String(originStyle),
+        priceBudget: String(priceBudget),
+        propertyType: String(propertyType)
+      });
+      res.json({ success: true, text: result.text, raw: result.raw });
+    } catch (err) {
+      console.error("Equipment Generation Error:", err);
+      res.status(500).json({ success: false, error: String(err) });
+    }
+  });
+
+  app.get('/api/magic-item/generate', (req, res) => {
+    try {
+      const { school = 'random', itemType = 'random', rarity = 'random', attunementFilter = 'random', chargesStyle = 'random', hasQuirk = 'random' } = req.query;
+      const result = generateMagicItem({
+        school: String(school),
+        itemType: String(itemType),
+        rarity: String(rarity),
+        attunementFilter: String(attunementFilter),
+        chargesStyle: String(chargesStyle),
+        hasQuirk: String(hasQuirk)
+      });
+      res.json({ success: true, text: result.text, raw: result.raw });
+    } catch (err) {
+      console.error("Magic Item Generation Error:", err);
+      res.status(500).json({ success: false, error: String(err) });
+    }
+  });
   app.get('/api/health', (req, res) => {
     res.json({
       status: 'ok',
@@ -607,6 +777,13 @@ async function startServer() {
       }
       
       const filePath = path.join(currentDir, fileName);
+      const resolvedFilePath = path.resolve(filePath);
+      const resolvedBasePath = path.resolve(basePath);
+      if (!resolvedFilePath.startsWith(resolvedBasePath)) {
+        res.status(403).json({ error: 'Access denied: Path traversal outside base folder is forbidden' });
+        return;
+      }
+
       fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
       
       res.json({ success: true, filePath });
@@ -642,6 +819,13 @@ async function startServer() {
       }
       
       const filePath = path.join(currentDir, fileName);
+      const resolvedFilePath = path.resolve(filePath);
+      const resolvedBasePath = path.resolve(basePath);
+      if (!resolvedFilePath.startsWith(resolvedBasePath)) {
+        res.status(403).json({ error: 'Access denied: Path traversal outside base folder is forbidden' });
+        return;
+      }
+
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
       }

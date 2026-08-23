@@ -163,10 +163,10 @@ export const MapCard: React.FC<Props> = memo(({
         isSelected ? 'shadow-[0_0_25px_rgba(251,191,36,0.35)]' : ''
       }`}
       style={{
-        left: `${mapItem.position.x}px`,
-        top: `${mapItem.position.y}px`,
-        width: `${mapItem.width * mapItem.scale.x}px`,
-        height: `${mapItem.height * mapItem.scale.y}px`,
+        left: `${mapItem.position?.x ?? 0}px`,
+        top: `${mapItem.position?.y ?? 0}px`,
+        width: `${mapItem.width * (mapItem.scale?.x ?? 1)}px`,
+        height: `${mapItem.height * (mapItem.scale?.y ?? 1)}px`,
         transform: `rotate(${mapItem.rotation}deg)`,
         zIndex: mapItem.zIndex,
         opacity: mapItem.opacity,
@@ -359,14 +359,19 @@ export const MapCard: React.FC<Props> = memo(({
     </div>
   );
 }, (prev, next) => {
+  const prevIsSelect = prev.activeTool === 'select';
+  const nextIsSelect = next.activeTool === 'select';
+
   return (
     prev.isSelected === next.isSelected &&
-    prev.activeTool === next.activeTool &&
+    prevIsSelect === nextIsSelect &&
     prev.mapItem.id === next.mapItem.id &&
-    prev.mapItem.position.x === next.mapItem.position.x &&
-    prev.mapItem.position.y === next.mapItem.position.y &&
-    prev.mapItem.scale.x === next.mapItem.scale.x &&
-    prev.mapItem.scale.y === next.mapItem.scale.y &&
+    (prev.mapItem.position?.x === next.mapItem.position?.x) &&
+    (prev.mapItem.position?.y === next.mapItem.position?.y) &&
+    (prev.mapItem.scale?.x === next.mapItem.scale?.x) &&
+    (prev.mapItem.scale?.y === next.mapItem.scale?.y) &&
+    prev.mapItem.width === next.mapItem.width &&
+    prev.mapItem.height === next.mapItem.height &&
     prev.mapItem.rotation === next.mapItem.rotation &&
     prev.mapItem.zIndex === next.mapItem.zIndex &&
     prev.mapItem.opacity === next.mapItem.opacity &&
@@ -374,6 +379,8 @@ export const MapCard: React.FC<Props> = memo(({
     prev.mapItem.locked === next.mapItem.locked &&
     prev.mapItem.hiddenFromPlayers === next.mapItem.hiddenFromPlayers &&
     prev.mapItem.url === next.mapItem.url &&
-    prev.mapItem.name === next.mapItem.name
+    prev.mapItem.name === next.mapItem.name &&
+    prev.mapItem.targetVaultMapId === next.mapItem.targetVaultMapId &&
+    prev.mapItem.contentCardData === next.mapItem.contentCardData
   );
 });
