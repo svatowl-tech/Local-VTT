@@ -337,22 +337,22 @@ export const MapCard: React.FC<Props> = memo(({
           {/* Rotate handle (top center) */}
           <div
             onMouseDown={(e) => onStartRotate(e, mapItem)}
-            className="absolute -top-10 left-1/2 -translate-x-1/2 w-7 h-7 bg-zinc-900 border-2 border-amber-400 rounded-full flex items-center justify-center cursor-pointer hover:bg-zinc-800 pointer-events-auto z-10 select-none shadow-lg"
-            title="Rotate Map"
+            className="absolute -top-12 left-1/2 -translate-x-1/2 w-8 h-8 bg-zinc-900 border-2 border-amber-400 rounded-full flex items-center justify-center cursor-pointer hover:bg-amber-500/20 hover:scale-110 pointer-events-auto z-10 select-none shadow-xl transition-all"
+            title="Повернуть объект"
           >
-            <div className="w-2.5 h-2.5 bg-amber-400 rounded-full" />
+            <div className="w-3 h-3 bg-amber-400 rounded-full shadow-sm" />
           </div>
 
           {/* Rotate connection line */}
-          <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-[2px] h-6 bg-amber-400 pointer-events-none z-0" />
+          <div className="absolute -top-8 left-1/2 -translate-x-1/2 w-[2px] h-8 bg-amber-400 pointer-events-none z-0" />
 
           {/* Resize handle (bottom right) */}
           <div
             onMouseDown={(e) => onStartResize(e, mapItem)}
-            className="absolute -bottom-3 -right-3 w-6 h-6 bg-zinc-900 border-2 border-amber-400 rounded-sm flex items-center justify-center cursor-nwse-resize hover:bg-zinc-800 pointer-events-auto z-10 select-none shadow-lg"
-            title="Scale Map"
+            className="absolute -bottom-4 -right-4 w-8 h-8 bg-zinc-900 border-2 border-amber-400 rounded-md flex items-center justify-center cursor-nwse-resize hover:bg-amber-500/20 hover:scale-110 pointer-events-auto z-10 select-none shadow-xl transition-all"
+            title="Изменить размер объекта"
           >
-            <div className="w-2 h-2 bg-amber-400 rounded-sm" />
+            <div className="w-3 h-3 bg-amber-400 rounded-sm shadow-sm" />
           </div>
         </>
       )}

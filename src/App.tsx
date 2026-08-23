@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTabletopSync } from './hooks/useTabletopSync';
 import { WindowSwitcherBar } from './components/WindowSwitcherBar';
 import { BrowserTabBar } from './components/BrowserTabBar';
@@ -61,6 +61,9 @@ export default function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('master');
   const [showEmergencyReset, setShowEmergencyReset] = useState<boolean>(false);
 
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+
   // Show emergency reset button if loading takes more than 2.5 seconds
   useEffect(() => {
     if (loading) {
@@ -99,7 +102,8 @@ export default function App() {
     // Register update callbacks
     diskAssetAutoSync.registerCallbacks(
       (newMaps, categories) => {
-        if (!session) return;
+        const currentSession = sessionRef.current;
+        if (!currentSession) return;
         // Save to the Map Library Catalog without flooding active canvas session
         mapLibraryCatalog.mergeLibraryMaps(newMaps, categories);
         
@@ -116,18 +120,18 @@ export default function App() {
         }
 
         if (categories && categories.length > 0) {
-          const mergedCats = Array.from(new Set([...(session.mapCategories || []), ...categories]));
+          const mergedCats = Array.from(new Set([...(currentSession.mapCategories || []), ...categories]));
           setMapCategories(mergedCats);
         }
 
         // If canvas is completely empty, activate the first discovered map
-        if (session.maps.length === 0 && newMaps.length > 0) {
+        if (currentSession.maps.length === 0 && newMaps.length > 0) {
           const firstMap = newMaps[0];
           setMaps([firstMap], firstMap.id);
         }
       },
       (newProps) => {
-        if (!session) return;
+        if (!sessionRef.current) return;
         mapLibraryCatalog.mergeLibraryMaps(newProps as MapItem[]);
       }
     );
@@ -137,7 +141,7 @@ export default function App() {
     });
 
     return () => unsubscribe();
-  }, [session, setMaps, healMapUrls, setMapCategories]);
+  }, [setMaps, healMapUrls, setMapCategories]);
 
   // Robust route check for standalone player window popup across web and Tauri desktop
   const isStandalonePlayer = tauriWindowManager.isPlayerWindow();

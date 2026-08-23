@@ -24,7 +24,8 @@ import {
   Home,
   LayoutGrid,
   CheckSquare,
-  Square
+  Square,
+  RefreshCw
 } from 'lucide-react';
 import { MapItem } from '../types';
 import { DraggableResizablePanel } from './DraggableResizablePanel';
@@ -78,6 +79,28 @@ export const DungeonGeneratorPanel: React.FC<Props> = ({ onClose, onImportDungeo
   ];
 
   const [activeTab, setActiveTab] = useState<GeneratorTab>('dungeon');
+  const [visitedTabs, setVisitedTabs] = useState<Record<string, boolean>>(() => ({
+    dungeon: true,
+  }));
+
+  useEffect(() => {
+    setVisitedTabs(prev => prev[activeTab] ? prev : { ...prev, [activeTab]: true });
+
+    const iframeMap: Record<string, React.RefObject<HTMLIFrameElement | null>> = {
+      tavern: tavernIframeRef,
+      city: cityIframeRef,
+      village: villageIframeRef,
+      house: houseIframeRef,
+    };
+    const targetRef = iframeMap[activeTab];
+    if (targetRef && targetRef.current && targetRef.current.contentWindow) {
+      try {
+        targetRef.current.contentWindow.dispatchEvent(new Event('resize'));
+      } catch (e) {
+        // ignore cross-origin error
+      }
+    }
+  }, [activeTab]);
   
   // Tavern state
   const tavernIframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -742,7 +765,7 @@ export const DungeonGeneratorPanel: React.FC<Props> = ({ onClose, onImportDungeo
       id="procedural_generators"
       onClose={onClose}
       defaultPosition={{ x: window.innerWidth > 900 ? window.innerWidth - 640 : 20, y: 70 }}
-      defaultSize={{ width: activeTab === 'tavern' || activeTab === 'city' || activeTab === 'village' || activeTab === 'house' ? 640 : 540, height: 'auto' }}
+      defaultSize={{ width: activeTab === 'tavern' || activeTab === 'city' || activeTab === 'village' || activeTab === 'house' ? 680 : 560, height: 'auto' }}
       minWidth={320}
       maxWidth={1000}
       handleTitle="Процедурные генераторы"
@@ -751,42 +774,24 @@ export const DungeonGeneratorPanel: React.FC<Props> = ({ onClose, onImportDungeo
       noPadding={true}
     >
       <div className="flex flex-col flex-1 min-h-0 w-full">
-        <div className="p-2 bg-zinc-950/95 border-b border-zinc-800/80 sticky top-0 z-20 backdrop-blur-md flex items-center gap-1.5 w-full overflow-hidden">
-          {/* Quick Dropdown for narrow panels/mobile */}
-          <div className="shrink-0 sm:hidden">
-            <select
-              value={activeTab}
-              onChange={e => setActiveTab(e.target.value as GeneratorTab)}
-              className="bg-zinc-900 border border-amber-500/50 text-amber-400 text-xs rounded-lg px-2 py-1 outline-none font-semibold cursor-pointer"
-            >
-              {GENERATOR_TABS.map(tab => (
-                <option key={tab.id} value={tab.id}>
-                  {tab.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Horizontally Scrollable Tab Strip */}
-          <div className="flex items-center gap-1.5 overflow-x-auto custom-scrollbar max-w-full py-0.5 shrink min-w-0 scroll-smooth">
-            {GENERATOR_TABS.map(tab => {
-              const isActive = activeTab === tab.id;
-              return (
-                <button 
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all duration-150 border cursor-pointer shrink-0 whitespace-nowrap ${
-                    isActive 
-                      ? 'bg-amber-500/20 border-amber-500/70 text-amber-400 shadow-sm shadow-amber-500/10' 
-                      : 'bg-zinc-900/80 border-zinc-800/80 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 hover:border-zinc-700'
-                  }`}
-                >
-                  {tab.icon}
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
-          </div>
+        <div className="p-2 bg-zinc-950/95 border-b border-zinc-800/80 sticky top-0 z-20 backdrop-blur-md flex flex-wrap items-center gap-1 w-full shrink-0 max-h-[140px] overflow-y-auto custom-scrollbar">
+          {GENERATOR_TABS.map(tab => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button 
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center space-x-1 px-2 py-1 rounded-lg text-[11px] font-semibold transition-all duration-150 border cursor-pointer shrink-0 whitespace-nowrap ${
+                  isActive 
+                    ? 'bg-amber-500/20 border-amber-500/70 text-amber-400 shadow-sm shadow-amber-500/10 ring-1 ring-amber-500/30' 
+                    : 'bg-zinc-900/80 border-zinc-800/80 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 hover:border-zinc-700'
+                }`}
+              >
+                {tab.icon}
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
         </div>
         
         <div className="p-4 flex flex-col space-y-4">
@@ -1663,9 +1668,11 @@ export const DungeonGeneratorPanel: React.FC<Props> = ({ onClose, onImportDungeo
                 )}
               </div>
             </>
-          
-          ) : activeTab === 'tavern' ? (
-            <div className="flex flex-col space-y-3">
+          ) : null}
+
+          {/* Persistent Watabou Generator Iframes (Loaded on first visit, kept alive in hidden DOM) */}
+          {visitedTabs['tavern'] && (
+            <div className={`flex-col space-y-3 ${activeTab === 'tavern' ? 'flex' : 'hidden'}`}>
               {/* Status Alert Notification */}
               {tavernNotification && (
                 <div className="flex items-center space-x-2 bg-amber-500/20 border border-amber-500/50 text-amber-300 text-xs px-3 py-2 rounded-xl animate-fadeIn">
@@ -1793,8 +1800,10 @@ export const DungeonGeneratorPanel: React.FC<Props> = ({ onClose, onImportDungeo
                 <span>Горячие клавиши: <strong className="text-zinc-400">X</strong> (импорт этажа), <strong className="text-zinc-400">Shift+X</strong> (все этажи), <strong className="text-zinc-400">Enter</strong> (новый план)</span>
               </div>
             </div>
-          ) : activeTab === 'city' ? (
-            <div className="flex flex-col space-y-3">
+          )}
+
+          {visitedTabs['city'] && (
+            <div className={`flex-col space-y-3 ${activeTab === 'city' ? 'flex' : 'hidden'}`}>
               {/* Status Alert Notification */}
               {cityNotification && (
                 <div className="flex items-center space-x-2 bg-amber-500/20 border border-amber-500/50 text-amber-300 text-xs px-3 py-2 rounded-xl animate-fadeIn">
@@ -1998,8 +2007,10 @@ export const DungeonGeneratorPanel: React.FC<Props> = ({ onClose, onImportDungeo
                 <span>Горячие клавиши: <strong className="text-zinc-400">Enter</strong> (новый город), <strong className="text-zinc-400">S</strong> (стиль и цвета), <strong className="text-zinc-400">T</strong> (настройки города), <strong className="text-zinc-400">W</strong> (деформация)</span>
               </div>
             </div>
-          ) : activeTab === 'village' ? (
-            <div className="flex flex-col space-y-3">
+          )}
+
+          {visitedTabs['village'] && (
+            <div className={`flex-col space-y-3 ${activeTab === 'village' ? 'flex' : 'hidden'}`}>
               {/* Top Notification */}
               {villageNotification && (
                 <div className="flex items-center space-x-2 p-2.5 bg-emerald-950/80 border border-emerald-500/50 rounded-lg text-emerald-300 text-xs animate-in fade-in slide-in-from-top-2">
@@ -2216,8 +2227,10 @@ export const DungeonGeneratorPanel: React.FC<Props> = ({ onClose, onImportDungeo
                 <span>Горячие клавиши: <strong className="text-zinc-400">Enter</strong> (новая деревня), <strong className="text-zinc-400">Shift+Enter</strong> (переброс), <strong className="text-zinc-400">1-5</strong> (палитры), <strong className="text-zinc-400">Tab</strong> (параметры), <strong className="text-zinc-400">S</strong> (стиль)</span>
               </div>
             </div>
-          ) : activeTab === 'house' ? (
-            <div className="flex flex-col space-y-3">
+          )}
+
+          {visitedTabs['house'] && (
+            <div className={`flex-col space-y-3 ${activeTab === 'house' ? 'flex' : 'hidden'}`}>
               {/* Top Notification */}
               {houseNotification && (
                 <div className="flex items-center space-x-2 p-2.5 bg-emerald-950/80 border border-emerald-500/50 rounded-lg text-emerald-300 text-xs animate-in fade-in slide-in-from-top-2">
@@ -2558,7 +2571,9 @@ export const DungeonGeneratorPanel: React.FC<Props> = ({ onClose, onImportDungeo
                 <span>Горячие клавиши: <strong className="text-zinc-400">Enter</strong> (новый дом), <strong className="text-zinc-400">E</strong> (план/фасад), <strong className="text-zinc-400">1-5</strong> (палитры), <strong className="text-zinc-400">Tab / T</strong> (параметры этажей), <strong className="text-zinc-400">PgUp/PgDn</strong> (этажи)</span>
               </div>
             </div>
-          ) : activeTab === 'dungeon' ? ( <>
+          )}
+
+          {activeTab === 'dungeon' && ( <>
 
 
               <div className="grid grid-cols-2 gap-3">
@@ -2672,7 +2687,9 @@ export const DungeonGeneratorPanel: React.FC<Props> = ({ onClose, onImportDungeo
                 <span>Импорт на рабочий стол</span>
               </button>
             </>
-          ) : (
+          )}
+
+          {['loot', 'merchant', 'shop', 'equipment'].includes(activeTab) && (
             <div className="flex flex-col items-center justify-center py-12 text-center space-y-3">
               <div className="w-12 h-12 bg-zinc-900 rounded-full flex items-center justify-center border border-zinc-800">
                 <Dices className="w-6 h-6 text-zinc-600" />

@@ -360,7 +360,7 @@ export const UnifiedAssetFolderModal: React.FC<Props> = ({
     >
       <div className="flex-1 flex flex-col p-4 overflow-y-auto space-y-4 text-zinc-100 text-xs custom-scrollbar">
         {/* Status Header Banner */}
-        <div className="p-4 bg-zinc-950 border border-zinc-800 rounded-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-inner">
+        <div className="p-4 bg-zinc-950 border border-zinc-800 rounded-2xl flex flex-col lg:flex-row lg:items-center justify-between gap-4 shadow-inner shrink-0">
           <div className="flex items-center space-x-3.5 min-w-0">
             <div
               className={`p-3 rounded-xl border shrink-0 ${
@@ -454,7 +454,7 @@ export const UnifiedAssetFolderModal: React.FC<Props> = ({
         </div>
 
         {/* Unified Folder Structure Overview Dashboard */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 shrink-0">
           <div className="p-2.5 bg-zinc-950 border border-zinc-800 rounded-xl space-y-0.5">
             <div className="flex items-center justify-between text-zinc-400">
               <span className="font-semibold text-[10px] truncate">maps/</span>
@@ -529,64 +529,64 @@ export const UnifiedAssetFolderModal: React.FC<Props> = ({
         </div>
 
         {/* Navigation Tabs Bar */}
-        <div className="flex items-center space-x-1.5 border-b border-zinc-800 pb-2 overflow-x-auto custom-scrollbar">
+        <div className="flex items-center space-x-2 border-b border-zinc-800 pb-2.5 pt-1 overflow-x-auto custom-scrollbar shrink-0 min-h-[50px] w-full">
           <button
             onClick={() => setActiveTab('systems')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer shrink-0 ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center space-x-2 transition-all cursor-pointer shrink-0 whitespace-nowrap ${
               activeTab === 'systems'
-                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
-                : 'bg-zinc-950 text-zinc-400 hover:text-zinc-200 border border-zinc-850'
+                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 shadow-md ring-1 ring-amber-500/30'
+                : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800 hover:bg-zinc-850'
             }`}
           >
-            <Swords className="w-3.5 h-3.5 text-amber-400" />
+            <Swords className="w-4 h-4 text-amber-400" />
             <span>Ролевые системы (`systems/`)</span>
           </button>
 
           <button
             onClick={() => setActiveTab('lore')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer shrink-0 ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center space-x-2 transition-all cursor-pointer shrink-0 whitespace-nowrap ${
               activeTab === 'lore'
-                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-sm'
-                : 'bg-zinc-950 text-zinc-400 hover:text-zinc-200 border border-zinc-850'
+                ? 'bg-purple-500/20 text-purple-300 border border-purple-500/50 shadow-md ring-1 ring-purple-500/30'
+                : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800 hover:bg-zinc-850'
             }`}
           >
-            <BookOpen className="w-3.5 h-3.5 text-purple-400" />
+            <BookOpen className="w-4 h-4 text-purple-400" />
             <span>Лор и Энциклопедия (`lore/`)</span>
           </button>
 
           <button
             onClick={() => setActiveTab('worlds')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer shrink-0 ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center space-x-2 transition-all cursor-pointer shrink-0 whitespace-nowrap ${
               activeTab === 'worlds'
-                ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 shadow-sm'
-                : 'bg-zinc-950 text-zinc-400 hover:text-zinc-200 border border-zinc-850'
+                ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/50 shadow-md ring-1 ring-indigo-500/30'
+                : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800 hover:bg-zinc-850'
             }`}
           >
-            <Globe className="w-3.5 h-3.5 text-indigo-400" />
+            <Globe className="w-4 h-4 text-indigo-400" />
             <span>Миры и Сеттинги (`worlds/`)</span>
           </button>
 
           <button
             onClick={() => setActiveTab('assets')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer shrink-0 ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center space-x-2 transition-all cursor-pointer shrink-0 whitespace-nowrap ${
               activeTab === 'assets'
-                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
-                : 'bg-zinc-950 text-zinc-400 hover:text-zinc-200 border border-zinc-850'
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 shadow-md ring-1 ring-emerald-500/30'
+                : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-850'
             }`}
           >
-            <Folder className="w-3.5 h-3.5 text-emerald-400" />
+            <Folder className="w-4 h-4 text-emerald-400" />
             <span>Карты и Медиа (`maps/`, `music/`)</span>
           </button>
 
           <button
             onClick={() => setActiveTab('backup')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all cursor-pointer shrink-0 ${
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center space-x-2 transition-all cursor-pointer shrink-0 whitespace-nowrap ${
               activeTab === 'backup'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm'
-                : 'bg-zinc-950 text-zinc-400 hover:text-zinc-200 border border-zinc-850'
+                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-md ring-1 ring-cyan-500/30'
+                : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800 hover:bg-zinc-850'
             }`}
           >
-            <Save className="w-3.5 h-3.5 text-cyan-400" />
+            <Save className="w-4 h-4 text-cyan-400" />
             <span>Снимки и Бэкап (`data/`)</span>
           </button>
         </div>

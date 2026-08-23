@@ -278,14 +278,14 @@ export const FloatingWindow: React.FC<Props> = ({
         <div className="flex-1 overflow-hidden flex flex-col relative min-h-0">
           {children}
 
-          {/* Corner Resize Handle */}
+          {/* Corner Resize Handle - Comfortable enlarged grab zone */}
           {!isMaximized && (
             <div
               onMouseDown={handleStartResize}
-              className="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize z-50 flex items-end justify-end p-0.5 group"
+              className="absolute bottom-0 right-0 w-7 h-7 cursor-nwse-resize z-50 flex items-end justify-end p-1 hover:bg-amber-500/10 rounded-tl-lg transition-all group/resize"
               title="Потяните для изменения размера окна"
             >
-              <div className="w-2 h-2 border-r-2 border-b-2 border-zinc-600 group-hover:border-amber-400 transition-colors" />
+              <div className="w-3 h-3 border-r-2 border-b-2 border-zinc-500 group-hover/resize:border-amber-400 group-hover/resize:scale-110 transition-all" />
             </div>
           )}
         </div>

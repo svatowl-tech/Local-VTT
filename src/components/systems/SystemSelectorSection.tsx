@@ -270,7 +270,7 @@ export const SystemSelectorSection: React.FC<Props> = ({ onSystemChanged }) => {
           </div>
 
           {/* Category Filter Chips */}
-          <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 text-xs">
+          <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 text-xs shrink-0 min-h-[36px] custom-scrollbar">
             <button
               onClick={() => setSelectedCategory('all')}
               className={`px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition-all shrink-0 cursor-pointer ${

@@ -326,13 +326,13 @@ export const DraggableResizablePanel: React.FC<Props> = ({
         {children}
       </div>
 
-      {/* Bottom Right Resize Handle */}
+      {/* Bottom Right Resize Handle - Comfortable enlarged grab zone */}
       <div
         onMouseDown={handleStartResize}
-        className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize flex items-center justify-center text-zinc-500 hover:text-amber-400 transition-colors z-50 select-none"
+        className="absolute bottom-0 right-0 w-7 h-7 cursor-se-resize flex items-end justify-end p-1 text-zinc-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-tl-lg transition-all z-50 select-none group/resize"
         title="Потяните для изменения размера окна"
       >
-        <svg className="w-2.5 h-2.5 fill-current" viewBox="0 0 6 6">
+        <svg className="w-3.5 h-3.5 fill-current text-zinc-500 group-hover/resize:text-amber-400 group-hover/resize:scale-110 transition-all" viewBox="0 0 6 6">
           <path d="M6 6H4V4h2v2zM6 2H4V0h2v2zM2 6H0V4h2v2z" />
         </svg>
       </div>

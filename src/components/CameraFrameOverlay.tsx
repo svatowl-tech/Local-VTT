@@ -57,31 +57,31 @@ export const CameraFrameOverlay: React.FC<Props> = memo(({
           {/* Right edge resize strip */}
           <div
             onMouseDown={(e) => onStartResize(e, 'r')}
-            className="absolute top-0 -right-1.5 w-3 h-full pointer-events-auto cursor-ew-resize hover:bg-cyan-400/50"
+            className="absolute top-0 -right-2.5 w-5 h-full pointer-events-auto cursor-ew-resize hover:bg-cyan-400/40 rounded transition-colors"
             title="Изменить размер камеры"
           />
           {/* Left edge resize strip */}
           <div
             onMouseDown={(e) => onStartResize(e, 'l')}
-            className="absolute top-0 -left-1.5 w-3 h-full pointer-events-auto cursor-ew-resize hover:bg-cyan-400/50"
+            className="absolute top-0 -left-2.5 w-5 h-full pointer-events-auto cursor-ew-resize hover:bg-cyan-400/40 rounded transition-colors"
             title="Изменить размер камеры"
           />
           {/* Bottom edge resize strip */}
           <div
             onMouseDown={(e) => onStartResize(e, 'b')}
-            className="absolute -bottom-1.5 left-0 w-full h-3 pointer-events-auto cursor-ns-resize hover:bg-cyan-400/50"
+            className="absolute -bottom-2.5 left-0 w-full h-5 pointer-events-auto cursor-ns-resize hover:bg-cyan-400/40 rounded transition-colors"
             title="Изменить размер камеры"
           />
           {/* Bottom-Right corner handle */}
           <div
             onMouseDown={(e) => onStartResize(e, 'br')}
-            className="absolute -bottom-2 -right-2 w-4 h-4 pointer-events-auto bg-cyan-400 hover:scale-125 transition-transform rounded-full border-2 border-zinc-950 cursor-nwse-resize shadow-md flex items-center justify-center"
+            className="absolute -bottom-3 -right-3 w-6 h-6 pointer-events-auto bg-cyan-400 hover:scale-125 transition-transform rounded-full border-2 border-zinc-950 cursor-nwse-resize shadow-lg flex items-center justify-center ring-2 ring-cyan-500/50"
             title="Изменить размер камеры"
           />
           {/* Bottom-Left corner handle */}
           <div
             onMouseDown={(e) => onStartResize(e, 'bl')}
-            className="absolute -bottom-2 -left-2 w-4 h-4 pointer-events-auto bg-cyan-400 hover:scale-125 transition-transform rounded-full border-2 border-zinc-950 cursor-nesw-resize shadow-md flex items-center justify-center"
+            className="absolute -bottom-3 -left-3 w-6 h-6 pointer-events-auto bg-cyan-400 hover:scale-125 transition-transform rounded-full border-2 border-zinc-950 cursor-nesw-resize shadow-lg flex items-center justify-center ring-2 ring-cyan-500/50"
             title="Изменить размер камеры"
           />
         </>
