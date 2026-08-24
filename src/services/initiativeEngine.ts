@@ -536,6 +536,37 @@ class InitiativeEngine {
     this.notify();
   }
 
+  public addMonsterTemplateToEncounter(template: MonsterTemplate, count: number = 1): void {
+    const newCombatants: InitiativeCombatant[] = [];
+    const existingCount = this.encounter.combatants.filter(
+      (c) => c.entityId === template.id || c.name.startsWith(template.name)
+    ).length;
+
+    for (let i = 1; i <= count; i++) {
+      const monsterNum = existingCount + i;
+      const monsterName = count > 1 || existingCount > 0 ? `${template.name} #${monsterNum}` : template.name;
+
+      newCombatants.push({
+        id: `combatant-monster-${template.id}-${Date.now()}-${Math.random().toString(36).substring(2, 5)}-${i}`,
+        entityId: template.id,
+        name: monsterName,
+        category: 'monster',
+        initiative: 0,
+        initBonus: template.initBonus,
+        currentHp: template.maxHp,
+        maxHp: template.maxHp,
+        ac: template.ac,
+        avatar: template.avatar,
+        conditions: [],
+        notes: `${template.cr} • ${template.type}`,
+        isHidden: false,
+      });
+    }
+
+    this.encounter.combatants = [...this.encounter.combatants, ...newCombatants];
+    this.notify();
+  }
+
   public addCustomCombatant(data: Omit<InitiativeCombatant, 'id'>): InitiativeCombatant {
     const newCombatant: InitiativeCombatant = {
       ...data,

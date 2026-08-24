@@ -208,3 +208,86 @@ export interface MagicItemRawData {
   item: MagicItemEntry;
 }
 
+export interface MonsterAction {
+  name: string;
+  type?: 'melee' | 'ranged' | 'spell' | 'special';
+  toHit?: number;
+  reachOrRange?: string;
+  target?: string;
+  damage?: string;
+  attackFormula?: string;
+  description: string;
+}
+
+export interface MonsterTrait {
+  name: string;
+  description: string;
+  attackFormula?: string;
+}
+
+export interface MonsterRawData {
+  id: string;
+  name: string;
+  originalName?: string;
+  title?: string;
+  type: string;
+  family: string;
+  element: string;
+  role: string;
+  size: 'Tiny' | 'Small' | 'Medium' | 'Large' | 'Huge' | 'Gargantuan';
+  alignment: string;
+  ac: number;
+  acSource: string;
+  hp: number;
+  hitDice: string;
+  speed: string;
+  cr: string;
+  crValue: number;
+  xp: number;
+  proficiencyBonus: number;
+  stats: {
+    STR: number;
+    DEX: number;
+    CON: number;
+    INT: number;
+    WIS: number;
+    CHA: number;
+  };
+  savingThrows?: string;
+  skills?: string;
+  damageResistances?: string;
+  damageImmunities?: string;
+  conditionImmunities?: string;
+  vulnerabilities?: string;
+  senses: string;
+  passivePerception: number;
+  languages: string;
+  traits: MonsterTrait[];
+  actions: MonsterAction[];
+  reactions?: MonsterTrait[];
+  legendaryActions?: MonsterTrait[];
+  lairActions?: MonsterTrait[];
+  spells?: {
+    casterLevel?: number;
+    spellcastingAbility?: string;
+    saveDc?: number;
+    spellAttackBonus?: number;
+    spellList: string[];
+    slots?: number[];
+  };
+  description: string;
+  habitat: string;
+  tactics: string;
+  loot: string;
+  avatar: string;
+}
+
+export interface MonsterGeneratorOptions {
+  family?: string;
+  element?: string;
+  cr?: string;
+  role?: string;
+  size?: string;
+  environment?: string;
+}
+

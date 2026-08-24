@@ -25,11 +25,12 @@ import {
   LayoutGrid,
   CheckSquare,
   Square,
-  RefreshCw
+  RefreshCw,
+  Skull
 } from 'lucide-react';
 import { MapItem } from '../types';
 import { DraggableResizablePanel } from './DraggableResizablePanel';
-import { NpcRawData, TreasureRawData, LootRawData, MerchantRawData, TravelingMerchantRawData, StationaryShopRawData, EquipmentRawData, MagicItemRawData } from '../types/generatorTypes';
+import { NpcRawData, TreasureRawData, LootRawData, MerchantRawData, TravelingMerchantRawData, StationaryShopRawData, EquipmentRawData, MagicItemRawData, MonsterRawData } from '../types/generatorTypes';
 import { NpcCardView } from './generators/NpcCardView';
 import { TreasureCardView } from './generators/TreasureCardView';
 import { LootCardView } from './generators/LootCardView';
@@ -38,6 +39,9 @@ import { TravelingMerchantView } from './generators/TravelingMerchantView';
 import { StationaryShopView } from './generators/StationaryShopView';
 import { EquipmentCardView } from './generators/EquipmentCardView';
 import { MagicItemCardView } from './generators/MagicItemCardView';
+import { MonsterCardView } from './generators/MonsterCardView';
+import { monsterGeneratorService } from '../services/monsterGeneratorService';
+import { playUniversalSfx } from '../utils/sfxAudio';
 
 interface HouseFloorInfo {
   index: number;
@@ -61,7 +65,7 @@ interface Props {
 }
 
 export const DungeonGeneratorPanel: React.FC<Props> = ({ onClose, onImportDungeon, onImportMultipleMaps }) => {
-  type GeneratorTab = 'dungeon' | 'city' | 'village' | 'house' | 'tavern' | 'npc' | 'loot' | 'treasure' | 'merchant' | 'shop' | 'equipment' | 'magic_items';
+  type GeneratorTab = 'dungeon' | 'city' | 'village' | 'house' | 'tavern' | 'monster' | 'npc' | 'loot' | 'treasure' | 'merchant' | 'shop' | 'equipment' | 'magic_items';
   
   const GENERATOR_TABS: { id: GeneratorTab; label: string; icon: React.ReactNode }[] = [
     { id: 'dungeon', label: 'Подземелье', icon: <Castle className="w-3.5 h-3.5 shrink-0" /> },
@@ -69,6 +73,7 @@ export const DungeonGeneratorPanel: React.FC<Props> = ({ onClose, onImportDungeo
     { id: 'city', label: 'Город', icon: <Building2 className="w-3.5 h-3.5 shrink-0" /> },
     { id: 'village', label: 'Деревня', icon: <MapPin className="w-3.5 h-3.5 shrink-0" /> },
     { id: 'house', label: 'Дом', icon: <Home className="w-3.5 h-3.5 shrink-0" /> },
+    { id: 'monster', label: 'Бестиарий / Монстр', icon: <Skull className="w-3.5 h-3.5 shrink-0 text-rose-400" /> },
     { id: 'npc', label: 'NPC', icon: <Dices className="w-3.5 h-3.5 shrink-0" /> },
     { id: 'loot', label: 'Лут', icon: <Sparkles className="w-3.5 h-3.5 shrink-0" /> },
     { id: 'treasure', label: 'Сокровища', icon: <Sparkles className="w-3.5 h-3.5 shrink-0" /> },
@@ -691,6 +696,37 @@ export const DungeonGeneratorPanel: React.FC<Props> = ({ onClose, onImportDungeo
       setMagicResult('Ошибка сети при обращении к серверу генерации.');
     } finally {
       setIsGeneratingMagic(false);
+    }
+  };
+
+  // Monster Generator state & handler
+  const [monsterFamily, setMonsterFamily] = useState<string>('random');
+  const [monsterElement, setMonsterElement] = useState<string>('random');
+  const [monsterCr, setMonsterCr] = useState<string>('random');
+  const [monsterRole, setMonsterRole] = useState<string>('random');
+  const [monsterSize, setMonsterSize] = useState<string>('random');
+  const [monsterEnv, setMonsterEnv] = useState<string>('random');
+  const [monsterRaw, setMonsterRaw] = useState<MonsterRawData | null>(null);
+  const [isGeneratingMonster, setIsGeneratingMonster] = useState<boolean>(false);
+
+  const handleGenerateMonster = () => {
+    setIsGeneratingMonster(true);
+    try {
+      const generated = monsterGeneratorService.generateMonster({
+        family: monsterFamily,
+        element: monsterElement,
+        cr: monsterCr,
+        role: monsterRole,
+        size: monsterSize,
+        environment: monsterEnv,
+      });
+      setMonsterRaw(generated);
+      playUniversalSfx('click');
+      if (setGeneratorToast) setGeneratorToast(`Монстр «${generated.name}» сгенерирован!`);
+    } catch (err) {
+      console.error('Monster generation error:', err);
+    } finally {
+      setIsGeneratingMonster(false);
     }
   };
   const [options, setOptions] = useState<DungeonOptions>({
@@ -1668,6 +1704,159 @@ export const DungeonGeneratorPanel: React.FC<Props> = ({ onClose, onImportDungeo
                 )}
               </div>
             </>
+          ) : activeTab === 'monster' ? (
+            <div className="flex flex-col space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
+                <div className="flex flex-col space-y-1">
+                  <label className="text-[10px] text-zinc-400 font-medium uppercase tracking-wider">Вид / Тип существа</label>
+                  <select 
+                    value={monsterFamily}
+                    onChange={e => setMonsterFamily(e.target.value)}
+                    className="bg-zinc-900 border border-zinc-700 text-zinc-100 text-xs rounded-lg px-2 py-1.5 outline-none focus:border-rose-500 custom-scrollbar"
+                  >
+                    <option value="random">🎲 Случайный вид</option>
+                    <option value="dragon">Дракон</option>
+                    <option value="undead">Нежить</option>
+                    <option value="fiend">Исчадие (демон/дьявол)</option>
+                    <option value="elemental">Элементаль</option>
+                    <option value="beast">Зверь</option>
+                    <option value="monstrosity">Чудовище</option>
+                    <option value="aberration">Аберрация</option>
+                    <option value="construct">Конструкт</option>
+                    <option value="plant">Растение</option>
+                    <option value="fey">Фея</option>
+                    <option value="celestial">Небожитель</option>
+                    <option value="ooze">Слизь</option>
+                    <option value="humanoid">Гуманоид</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-col space-y-1">
+                  <label className="text-[10px] text-zinc-400 font-medium uppercase tracking-wider">Стихия / Тема</label>
+                  <select 
+                    value={monsterElement}
+                    onChange={e => setMonsterElement(e.target.value)}
+                    className="bg-zinc-900 border border-zinc-700 text-zinc-100 text-xs rounded-lg px-2 py-1.5 outline-none focus:border-rose-500 custom-scrollbar"
+                  >
+                    <option value="random">🎲 Случайная стихия</option>
+                    <option value="fire">🔥 Огонь / Пламя</option>
+                    <option value="cold">❄️ Холод / Мороз</option>
+                    <option value="lightning">⚡ Молния / Гром</option>
+                    <option value="acid_poison">🧪 Яд / Кислота</option>
+                    <option value="shadow_necrotic">💀 Тьма / Некромантия</option>
+                    <option value="radiant_holy">✨ Свет / Святость</option>
+                    <option value="psychic">👁️ Псионика / Разум</option>
+                    <option value="earth_stone">🪨 Земля / Камень</option>
+                    <option value="arcane">🔮 Магия / Аркана</option>
+                    <option value="physical">⚔️ Физическая / Естественная</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-col space-y-1">
+                  <label className="text-[10px] text-zinc-400 font-medium uppercase tracking-wider">Опасность (CR)</label>
+                  <select 
+                    value={monsterCr}
+                    onChange={e => setMonsterCr(e.target.value)}
+                    className="bg-zinc-900 border border-zinc-700 text-zinc-100 text-xs rounded-lg px-2 py-1.5 outline-none focus:border-rose-500 custom-scrollbar"
+                  >
+                    <option value="random">🎲 Случайный CR</option>
+                    <option value="0">CR 0</option>
+                    <option value="1/8">CR 1/8</option>
+                    <option value="1/4">CR 1/4</option>
+                    <option value="1/2">CR 1/2</option>
+                    <option value="1">CR 1</option>
+                    <option value="2">CR 2</option>
+                    <option value="3">CR 3</option>
+                    <option value="4">CR 4</option>
+                    <option value="5">CR 5</option>
+                    <option value="6">CR 6</option>
+                    <option value="7">CR 7</option>
+                    <option value="8">CR 8</option>
+                    <option value="9">CR 9</option>
+                    <option value="10">CR 10</option>
+                    <option value="12">CR 12</option>
+                    <option value="15">CR 15</option>
+                    <option value="18">CR 18</option>
+                    <option value="20">CR 20</option>
+                    <option value="21-25">CR 21-25</option>
+                    <option value="26-30">CR 26-30</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-col space-y-1">
+                  <label className="text-[10px] text-zinc-400 font-medium uppercase tracking-wider">Роль в бою</label>
+                  <select 
+                    value={monsterRole}
+                    onChange={e => setMonsterRole(e.target.value)}
+                    className="bg-zinc-900 border border-zinc-700 text-zinc-100 text-xs rounded-lg px-2 py-1.5 outline-none focus:border-rose-500 custom-scrollbar"
+                  >
+                    <option value="random">🎲 Случайная роль</option>
+                    <option value="brute">💥 Брут / Танк</option>
+                    <option value="skirmisher">🏹 Застрельщик / Ловкач</option>
+                    <option value="caster">🔮 Заклинатель / Маг</option>
+                    <option value="controller">🌀 Контролер</option>
+                    <option value="boss">👑 Босс / Легендарный</option>
+                    <option value="ambusher">🗡️ Засадник / Убийца</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-col space-y-1">
+                  <label className="text-[10px] text-zinc-400 font-medium uppercase tracking-wider">Размер</label>
+                  <select 
+                    value={monsterSize}
+                    onChange={e => setMonsterSize(e.target.value)}
+                    className="bg-zinc-900 border border-zinc-700 text-zinc-100 text-xs rounded-lg px-2 py-1.5 outline-none focus:border-rose-500 custom-scrollbar"
+                  >
+                    <option value="random">🎲 Случайный размер</option>
+                    <option value="Tiny">Крошечный (Tiny)</option>
+                    <option value="Small">Маленький (Small)</option>
+                    <option value="Medium">Средний (Medium)</option>
+                    <option value="Large">Большой (Large)</option>
+                    <option value="Huge">Огромный (Huge)</option>
+                    <option value="Gargantuan">Исполинский (Gargantuan)</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-col space-y-1">
+                  <label className="text-[10px] text-zinc-400 font-medium uppercase tracking-wider">Среда обитания</label>
+                  <select 
+                    value={monsterEnv}
+                    onChange={e => setMonsterEnv(e.target.value)}
+                    className="bg-zinc-900 border border-zinc-700 text-zinc-100 text-xs rounded-lg px-2 py-1.5 outline-none focus:border-rose-500 custom-scrollbar"
+                  >
+                    <option value="random">🎲 Случайная среда</option>
+                    <option value="dungeon">🏰 Подземелье / Гробница</option>
+                    <option value="forest">🌲 Лес / Чаща</option>
+                    <option value="mountains">🏔️ Горы / Пики</option>
+                    <option value="swamp">🐸 Болото / Трясина</option>
+                    <option value="desert">🏜️ Пустыня / Дюны</option>
+                    <option value="aquatic">🌊 Вода / Глубины</option>
+                    <option value="planar">🌀 Иные Планы / Бездна</option>
+                  </select>
+                </div>
+              </div>
+
+              <button 
+                onClick={handleGenerateMonster}
+                disabled={isGeneratingMonster}
+                className="w-full py-2.5 bg-rose-600 hover:bg-rose-500 text-zinc-950 text-xs font-bold rounded-xl border border-rose-500/50 shadow-lg transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                <Skull className="w-4 h-4" />
+                <span>{isGeneratingMonster ? 'Генерация...' : 'Сгенерировать монстра D&D 5е'}</span>
+              </button>
+
+              {monsterRaw ? (
+                <MonsterCardView 
+                  monster={monsterRaw} 
+                  onImportMapItem={onImportDungeon} 
+                  onShowToast={setGeneratorToast} 
+                />
+              ) : (
+                <div className="flex h-36 items-center justify-center text-zinc-500 text-xs text-center px-4 bg-zinc-900/40 rounded-xl border border-zinc-800/60">
+                  Процедурный генератор монстров D&D 5е с настройкой вида, стихии, уровня опасности, роли, размера и среды обитания. Нажмите кнопку для генерации.
+                </div>
+              )}
+            </div>
           ) : null}
 
           {/* Persistent Watabou Generator Iframes (Loaded on first visit, kept alive in hidden DOM) */}

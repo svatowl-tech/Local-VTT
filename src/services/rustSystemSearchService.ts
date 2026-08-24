@@ -1,4 +1,5 @@
 import { tauriWindowManager } from './tauriWindowManager';
+import { dnd5eApiService } from './dnd5eApiService';
 import {
   NormalizedStats,
   NormalizedAction,
@@ -107,6 +108,20 @@ class RustSystemSearchService {
       }
     }
 
+    // Fetch dnd5eapi.co results if system is dnd5e or all
+    let dnd5eApiItems: SystemReferenceSearchItem[] = [];
+    if (!options.systemId || options.systemId === 'all' || options.systemId === 'dnd5e') {
+      try {
+        dnd5eApiItems = await dnd5eApiService.searchApi({
+          query: options.query,
+          category: options.category,
+          limit: 20,
+        });
+      } catch (err) {
+        console.warn('dnd5eApiService search error:', err);
+      }
+    }
+
     // 1. Try Native Rust Engine
     if (this.isRustAvailable()) {
       try {
@@ -120,7 +135,7 @@ class RustSystemSearchService {
         });
 
         if (rustResult && rustResult.success) {
-          const merged = [...memoryMatches, ...(rustResult.results || [])];
+          const merged = [...dnd5eApiItems, ...memoryMatches, ...(rustResult.results || [])];
           const finalResult: SystemReferenceSearchResult = {
             success: true,
             query: rustResult.query || options.query,
@@ -150,7 +165,7 @@ class RustSystemSearchService {
       const res = await fetch(`/api/systems/search?${params.toString()}`);
       if (res.ok) {
         const tsResult: SystemReferenceSearchResult = await res.json();
-        tsResult.results = [...memoryMatches, ...(tsResult.results || [])];
+        tsResult.results = [...dnd5eApiItems, ...memoryMatches, ...(tsResult.results || [])];
         tsResult.totalMatches = tsResult.results.length;
         tsResult.engine = '⚡ TS Backend Engine (Fallback)';
         this.memoryCache.set(cacheKey, { result: tsResult, timestamp: Date.now() });
@@ -161,15 +176,16 @@ class RustSystemSearchService {
     }
 
     // 3. Emergency fallback if server is offline
+    const allMatches = [...dnd5eApiItems, ...memoryMatches];
     const elapsedMs = Math.round((performance.now() - startTime) * 100) / 100;
     return {
       success: true,
       query: options.query,
-      totalMatches: memoryMatches.length,
+      totalMatches: allMatches.length,
       elapsedMs,
-      engine: 'Local Memory Ingested Registry',
+      engine: 'dnd5eapi.co + Local Registry',
       categoryCounts: {},
-      results: memoryMatches,
+      results: allMatches,
     };
   }
 }

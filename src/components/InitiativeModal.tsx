@@ -4,6 +4,7 @@ import {
   POPULAR_CONDITIONS,
   INITIATIVE_FORMULAS,
 } from '../services/initiativeEngine';
+import { dnd5eApiService } from '../services/dnd5eApiService';
 import {
   PlayerCharacter,
   MonsterTemplate,
@@ -60,6 +61,44 @@ export const InitiativeModal: React.FC<Props> = ({
 
   // Monster quantity selection map: monsterId -> quantity
   const [monsterQuantities, setMonsterQuantities] = useState<Record<string, number>>({});
+
+  // D&D 5e API Bestiary State
+  const [monsterSourceTab, setMonsterSourceTab] = useState<'dnd5eapi' | 'local'>('dnd5eapi');
+  const [dnd5eMonsters, setDnd5eMonsters] = useState<MonsterTemplate[]>([]);
+  const [isSearchingDnd5e, setIsSearchingDnd5e] = useState<boolean>(false);
+  const [dnd5eCrFilter, setDnd5eCrFilter] = useState<string>('all');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  useEffect(() => {
+    if (activeTab === 'add-from-db' && dbCategory === 'monster' && monsterSourceTab === 'dnd5eapi') {
+      let isCancelled = false;
+      setIsSearchingDnd5e(true);
+      const timer = setTimeout(() => {
+        dnd5eApiService
+          .searchMonsters(searchQuery, dnd5eCrFilter)
+          .then((results) => {
+            if (!isCancelled) {
+              setDnd5eMonsters(results);
+              setIsSearchingDnd5e(false);
+            }
+          })
+          .catch((err) => {
+            console.error('Error fetching dnd5eapi monsters:', err);
+            if (!isCancelled) setIsSearchingDnd5e(false);
+          });
+      }, 150);
+
+      return () => {
+        isCancelled = true;
+        clearTimeout(timer);
+      };
+    }
+  }, [searchQuery, dnd5eCrFilter, monsterSourceTab, activeTab, dbCategory]);
 
   // Conditions popup active for combatant
   const [activeConditionsCombatantId, setActiveConditionsCombatantId] = useState<string | null>(null);
@@ -699,6 +738,12 @@ export const InitiativeModal: React.FC<Props> = ({
         {/* TAB 2: SELECT FROM DATABASE (PLAYERS & MONSTERS) */}
         {activeTab === 'add-from-db' && (
           <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-6 bg-zinc-900/30">
+            {toastMessage && (
+              <div className="bg-amber-500 text-zinc-950 font-bold px-4 py-1.5 text-center text-xs flex items-center justify-center space-x-2 animate-bounce rounded-xl">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>{toastMessage}</span>
+              </div>
+            )}
             {/* Category Selector (Players vs Monsters) */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-zinc-900/80 p-3.5 rounded-2xl border border-zinc-800">
               <div className="flex items-center space-x-2">
@@ -809,78 +854,245 @@ export const InitiativeModal: React.FC<Props> = ({
             {/* MONSTER DATABASE SELECTION */}
             {dbCategory === 'monster' && (
               <div className="space-y-4">
-                <div className="text-xs text-zinc-400">
-                  Укажите необходимое количество NPC/противников и добавьте их в сражение.
-                </div>
+                {/* Source Selection Sub-tabs */}
+                <div className="flex flex-wrap items-center justify-between gap-2 bg-zinc-950/80 p-1.5 rounded-2xl border border-zinc-800">
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => setMonsterSourceTab('dnd5eapi')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
+                        monsterSourceTab === 'dnd5eapi'
+                          ? 'bg-amber-500 text-zinc-950 shadow-md'
+                          : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800'
+                      }`}
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Бестиарий D&D 5e API (330+ монстров)</span>
+                    </button>
+                    <button
+                      onClick={() => setMonsterSourceTab('local')}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
+                        monsterSourceTab === 'local'
+                          ? 'bg-amber-500 text-zinc-950 shadow-md'
+                          : 'bg-zinc-900 text-zinc-400 hover:text-zinc-200 border border-zinc-800'
+                      }`}
+                    >
+                      <Skull className="w-3.5 h-3.5" />
+                      <span>Моя локальная база ({monsterDatabase.length})</span>
+                    </button>
+                  </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {filteredMonsters.map((monster) => {
-                    const qty = getMonsterQuantity(monster.id);
-
-                    return (
-                      <div
-                        key={monster.id}
-                        className="p-4 bg-zinc-950/80 border border-zinc-800 rounded-2xl flex flex-col justify-between space-y-3 hover:border-rose-500/40 transition-all"
+                  {monsterSourceTab === 'dnd5eapi' && (
+                    <div className="flex items-center space-x-2">
+                      <span className="text-[11px] text-zinc-400 font-medium hidden sm:inline">CR:</span>
+                      <select
+                        value={dnd5eCrFilter}
+                        onChange={(e) => setDnd5eCrFilter(e.target.value)}
+                        className="bg-zinc-900 border border-zinc-700 text-zinc-200 text-xs rounded-xl px-2 py-1 focus:outline-none cursor-pointer"
                       >
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-2xl">
-                              {monster.avatar}
-                            </div>
-                            <div>
-                              <h4 className="font-bold text-sm text-zinc-100">{monster.name}</h4>
-                              <p className="text-xs text-zinc-400">
-                                {monster.type} • <span className="text-rose-400 font-semibold">{monster.cr}</span>
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="text-right text-xs font-mono space-y-0.5">
-                            <div className="text-rose-400 font-bold">HP: {monster.maxHp}</div>
-                            <div className="text-zinc-400">Защита: {monster.ac}</div>
-                          </div>
-                        </div>
-
-                        {monster.notes && (
-                          <p className="text-[11px] text-zinc-500 line-clamp-1 italic">{monster.notes}</p>
-                        )}
-
-                        <div className="flex items-center justify-between pt-2 border-t border-zinc-900">
-                          {/* Quantity Selector */}
-                          <div className="flex items-center space-x-1.5">
-                            <span className="text-xs text-zinc-400">Кол-во:</span>
-                            <div className="flex items-center space-x-1 bg-zinc-900 border border-zinc-800 rounded-xl p-0.5">
-                              <button
-                                onClick={() => setMonsterQuantity(monster.id, qty - 1)}
-                                className="w-6 h-6 rounded-lg bg-zinc-800 text-zinc-300 hover:text-white flex items-center justify-center text-xs font-bold"
-                              >
-                                -
-                              </button>
-                              <span className="w-6 text-center font-mono text-xs font-bold text-zinc-100">
-                                {qty}
-                              </span>
-                              <button
-                                onClick={() => setMonsterQuantity(monster.id, qty + 1)}
-                                className="w-6 h-6 rounded-lg bg-zinc-800 text-zinc-300 hover:text-white flex items-center justify-center text-xs font-bold"
-                              >
-                                +
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Add button */}
-                          <button
-                            onClick={() => handleAddMonster(monster.id)}
-                            className="px-3.5 py-1.5 bg-rose-500 hover:bg-rose-400 text-zinc-950 rounded-xl text-xs font-bold transition-all flex items-center space-x-1 shadow-md shadow-rose-500/20"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>Добавить {qty > 1 ? `(${qty})` : ''}</span>
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
+                        <option value="all">Все CR</option>
+                        <option value="CR 0">CR 0</option>
+                        <option value="CR 0.125">CR 1/8</option>
+                        <option value="CR 0.25">CR 1/4</option>
+                        <option value="CR 0.5">CR 1/2</option>
+                        <option value="CR 1">CR 1</option>
+                        <option value="CR 2">CR 2</option>
+                        <option value="CR 3">CR 3</option>
+                        <option value="CR 4">CR 4</option>
+                        <option value="CR 5">CR 5</option>
+                        <option value="CR 6">CR 6</option>
+                        <option value="CR 7">CR 7</option>
+                        <option value="CR 8">CR 8</option>
+                        <option value="CR 9">CR 9</option>
+                        <option value="CR 10">CR 10+</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
+
+                {/* D&D 5E API TAB CONTENT */}
+                {monsterSourceTab === 'dnd5eapi' && (
+                  <div className="space-y-3">
+                    {isSearchingDnd5e ? (
+                      <div className="p-8 text-center text-zinc-400 space-y-2">
+                        <Sparkles className="w-6 h-6 animate-spin text-amber-400 mx-auto" />
+                        <p className="text-xs">Загрузка монстров из dnd5eapi.co...</p>
+                      </div>
+                    ) : dnd5eMonsters.length === 0 ? (
+                      <div className="p-8 text-center bg-zinc-950/40 rounded-2xl border border-zinc-800/80 text-zinc-400 space-y-1">
+                        <Skull className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
+                        <p className="font-semibold text-xs text-zinc-300">Монстры не найдены</p>
+                        <p className="text-[11px] text-zinc-500">
+                          Попробуйте изменить поисковый запрос (например: goblin, dragon, beholder, skeleton)
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {dnd5eMonsters.map((monster) => {
+                          const qty = getMonsterQuantity(monster.id);
+
+                          return (
+                            <div
+                              key={monster.id}
+                              className="p-4 bg-zinc-950/80 border border-zinc-800 rounded-2xl flex flex-col justify-between space-y-3 hover:border-amber-500/40 transition-all shadow-sm"
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-center space-x-3 min-w-0">
+                                  <div className="w-10 h-10 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xl shrink-0 overflow-hidden">
+                                    {monster.avatar && monster.avatar.startsWith('http') ? (
+                                      <img
+                                        src={monster.avatar}
+                                        alt={monster.name}
+                                        referrerPolicy="no-referrer"
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          (e.target as HTMLElement).style.display = 'none';
+                                        }}
+                                      />
+                                    ) : (
+                                      <span>{monster.avatar || '👾'}</span>
+                                    )}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <h4 className="font-bold text-sm text-zinc-100 truncate">{monster.name}</h4>
+                                    <p className="text-xs text-zinc-400 truncate">
+                                      {monster.type} • <span className="text-amber-400 font-semibold">{monster.cr}</span>
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="text-right text-xs font-mono space-y-0.5 shrink-0">
+                                  <div className="text-rose-400 font-bold">HP: {monster.maxHp}</div>
+                                  <div className="text-zinc-400">КБ: {monster.ac} | Иниц: {monster.initBonus >= 0 ? `+${monster.initBonus}` : monster.initBonus}</div>
+                                </div>
+                              </div>
+
+                              {monster.notes && (
+                                <p className="text-[11px] text-zinc-500 line-clamp-1 italic">{monster.notes}</p>
+                              )}
+
+                              <div className="flex items-center justify-between pt-2 border-t border-zinc-900 gap-2">
+                                {/* Quantity Selector */}
+                                <div className="flex items-center space-x-1 bg-zinc-900 border border-zinc-800 rounded-xl p-0.5">
+                                  <button
+                                    onClick={() => setMonsterQuantity(monster.id, qty - 1)}
+                                    className="w-5 h-5 rounded-lg bg-zinc-800 text-zinc-300 hover:text-white flex items-center justify-center text-xs font-bold cursor-pointer"
+                                  >
+                                    -
+                                  </button>
+                                  <span className="w-5 text-center font-mono text-xs font-bold text-zinc-100">
+                                    {qty}
+                                  </span>
+                                  <button
+                                    onClick={() => setMonsterQuantity(monster.id, qty + 1)}
+                                    className="w-5 h-5 rounded-lg bg-zinc-800 text-zinc-300 hover:text-white flex items-center justify-center text-xs font-bold cursor-pointer"
+                                  >
+                                    +
+                                  </button>
+                                </div>
+
+                                <div className="flex items-center space-x-1.5">
+                                  <button
+                                    onClick={() => {
+                                      initiativeEngine.addMonsterToDb(monster);
+                                      showToast(`Сохранено в базу: ${monster.name}`);
+                                    }}
+                                    className="px-2 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl text-[11px] font-medium transition-all cursor-pointer"
+                                    title="Сохранить монстра в локальную базу"
+                                  >
+                                    + В базу
+                                  </button>
+
+                                  <button
+                                    onClick={() => {
+                                      initiativeEngine.addMonsterTemplateToEncounter(monster, qty);
+                                      setActiveTab('combat');
+                                    }}
+                                    className="px-3 py-1.5 bg-rose-500 hover:bg-rose-400 text-zinc-950 rounded-xl text-xs font-bold transition-all flex items-center space-x-1 shadow-md shadow-rose-500/20 cursor-pointer"
+                                  >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    <span>В бой {qty > 1 ? `(${qty})` : ''}</span>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* LOCAL MONSTER DATABASE TAB CONTENT */}
+                {monsterSourceTab === 'local' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {filteredMonsters.map((monster) => {
+                      const qty = getMonsterQuantity(monster.id);
+
+                      return (
+                        <div
+                          key={monster.id}
+                          className="p-4 bg-zinc-950/80 border border-zinc-800 rounded-2xl flex flex-col justify-between space-y-3 hover:border-rose-500/40 transition-all"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-10 h-10 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-2xl">
+                                {monster.avatar}
+                              </div>
+                              <div>
+                                <h4 className="font-bold text-sm text-zinc-100">{monster.name}</h4>
+                                <p className="text-xs text-zinc-400">
+                                  {monster.type} • <span className="text-rose-400 font-semibold">{monster.cr}</span>
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="text-right text-xs font-mono space-y-0.5">
+                              <div className="text-rose-400 font-bold">HP: {monster.maxHp}</div>
+                              <div className="text-zinc-400">Защита: {monster.ac}</div>
+                            </div>
+                          </div>
+
+                          {monster.notes && (
+                            <p className="text-[11px] text-zinc-500 line-clamp-1 italic">{monster.notes}</p>
+                          )}
+
+                          <div className="flex items-center justify-between pt-2 border-t border-zinc-900">
+                            {/* Quantity Selector */}
+                            <div className="flex items-center space-x-1.5">
+                              <span className="text-xs text-zinc-400">Кол-во:</span>
+                              <div className="flex items-center space-x-1 bg-zinc-900 border border-zinc-800 rounded-xl p-0.5">
+                                <button
+                                  onClick={() => setMonsterQuantity(monster.id, qty - 1)}
+                                  className="w-6 h-6 rounded-lg bg-zinc-800 text-zinc-300 hover:text-white flex items-center justify-center text-xs font-bold"
+                                >
+                                  -
+                                </button>
+                                <span className="w-6 text-center font-mono text-xs font-bold text-zinc-100">
+                                  {qty}
+                                </span>
+                                <button
+                                  onClick={() => setMonsterQuantity(monster.id, qty + 1)}
+                                  className="w-6 h-6 rounded-lg bg-zinc-800 text-zinc-300 hover:text-white flex items-center justify-center text-xs font-bold"
+                                >
+                                  +
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Add button */}
+                            <button
+                              onClick={() => handleAddMonster(monster.id)}
+                              className="px-3.5 py-1.5 bg-rose-500 hover:bg-rose-400 text-zinc-950 rounded-xl text-xs font-bold transition-all flex items-center space-x-1 shadow-md shadow-rose-500/20"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Добавить {qty > 1 ? `(${qty})` : ''}</span>
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>

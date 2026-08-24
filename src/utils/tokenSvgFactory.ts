@@ -211,3 +211,44 @@ export function generateMerchantTokenSvg(shopType: string, merchantName: string)
   `;
   return svgToDataUrl(svg);
 }
+
+/**
+ * Generates an ultra-crisp circular monster token SVG with CR & HP nameplate
+ */
+export function generateMonsterTokenSvg(monster: { name: string; cr: string; hp: number; ac: number; avatar?: string }): string {
+  const shortName = monster.name.length > 15 ? monster.name.substring(0, 13) + '…' : monster.name;
+  const emoji = monster.avatar && !monster.avatar.startsWith('http') ? monster.avatar : '👾';
+
+  const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <radialGradient id="monsterGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#f43f5e" stop-opacity="0.4"/>
+      <stop offset="100%" stop-color="transparent" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <circle cx="100" cy="100" r="92" fill="url(#monsterGlow)"/>
+  <circle cx="100" cy="100" r="88" fill="#18181b" stroke="#f43f5e" stroke-width="6"/>
+  <circle cx="100" cy="100" r="80" fill="none" stroke="#fecdd3" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.7"/>
+
+  <!-- Monster Avatar -->
+  <text x="100" y="90" font-size="56" text-anchor="middle" dominant-baseline="central">${emoji}</text>
+
+  <!-- CR Badge Top -->
+  <rect x="55" y="22" width="90" height="20" rx="6" fill="#881337" stroke="#f43f5e" stroke-width="1.5"/>
+  <text x="100" y="36" font-family="system-ui, -apple-system, sans-serif" font-weight="bold" font-size="10" fill="#ffe4e6" text-anchor="middle" letter-spacing="1">
+    ${monster.cr} • КБ ${monster.ac}
+  </text>
+
+  <!-- Name Banner Bottom -->
+  <g transform="translate(20, 142)">
+    <rect x="0" y="0" width="160" height="28" rx="8" fill="#09090b" stroke="#f43f5e" stroke-width="2"/>
+    <text x="80" y="18" font-family="system-ui, -apple-system, sans-serif" font-weight="bold" font-size="11" fill="#fff1f2" text-anchor="middle">
+      ${shortName}
+    </text>
+  </g>
+</svg>
+  `;
+  return svgToDataUrl(svg);
+}

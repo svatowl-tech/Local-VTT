@@ -1,11 +1,12 @@
 import { MapItem } from '../types';
 import { WorldLoreItem } from '../types/worldLoreTypes';
-import { NpcRawData, TreasureRawData, LootRawData, MerchantRawData } from '../types/generatorTypes';
+import { NpcRawData, TreasureRawData, LootRawData, MerchantRawData, MonsterRawData } from '../types/generatorTypes';
 import {
   generateNpcTokenSvg,
   generateTreasureTokenSvg,
   generateLootTokenSvg,
   generateMerchantTokenSvg,
+  generateMonsterTokenSvg,
 } from './tokenSvgFactory';
 
 /**
@@ -655,3 +656,170 @@ ${merchant.inventory.map((i, idx) => `${idx + 1}. **${i.name}** — \`${i.price}
     updatedAt: Date.now(),
   };
 }
+
+// ----------------------------------------------------------------------
+// 6. MONSTER IMPORTERS
+// ----------------------------------------------------------------------
+
+export function createMonsterTokenItem(monster: MonsterRawData, spawnPos: { x: number; y: number } = { x: 0, y: 0 }): MapItem {
+  const tokenUrl = generateMonsterTokenSvg(monster);
+  const size = monster.size === 'Huge' || monster.size === 'Gargantuan' ? 150 : monster.size === 'Large' ? 120 : 100;
+  return {
+    id: `token-mon-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    name: `${monster.name} (${monster.cr}, КБ ${monster.ac}, HP ${monster.hp})`,
+    type: 'image',
+    url: tokenUrl,
+    thumbnailUrl: tokenUrl,
+    width: size,
+    height: size,
+    aspectRatio: 1,
+    position: {
+      x: spawnPos.x - Math.round(size / 2),
+      y: spawnPos.y - Math.round(size / 2),
+    },
+    scale: { x: 1, y: 1 },
+    rotation: 0,
+    zIndex: 60,
+    opacity: 1,
+    hash: 'mon-tok-' + Math.random().toString(36).substring(2, 8),
+    fileSize: 0,
+    format: 'svg',
+    category: 'Токены',
+    layer: 'props',
+    tags: ['Монстр', 'Токен', monster.family, monster.cr],
+  };
+}
+
+export function createMonsterSearchItem(monster: MonsterRawData) {
+  return {
+    id: `comp-mon-${monster.id}`,
+    systemId: 'dnd5e',
+    systemName: 'D&D 5e',
+    name: monster.name,
+    originalName: monster.originalName || monster.name,
+    category: 'monsters' as const,
+    format: 'MonsterStatblock',
+    summary: `${monster.size} ${monster.type}, ${monster.alignment}. Хиты: ${monster.hp}, КД: ${monster.ac}, Опасность: ${monster.cr}`,
+    snippet: `${monster.description}\n\nТактика: ${monster.tactics}\nДобыча: ${monster.loot}`,
+    score: 1,
+    matchType: 'exact',
+    tags: ['Монстр', monster.family, monster.element, monster.cr],
+    relativePath: 'monsters',
+    stats: {
+      hp: monster.hp,
+      ac: monster.ac,
+      speed: monster.speed,
+      cr: monster.cr.replace('CR ', ''),
+      str: monster.stats.STR,
+      dex: monster.stats.DEX,
+      con: monster.stats.CON,
+      int: monster.stats.INT,
+      wis: monster.stats.WIS,
+      cha: monster.stats.CHA,
+      savingThrows: monster.savingThrows,
+      skills: monster.skills,
+      damageResistances: monster.damageResistances,
+      damageImmunities: monster.damageImmunities,
+      conditionImmunities: monster.conditionImmunities,
+      senses: monster.senses,
+      passivePerception: monster.passivePerception,
+      languages: monster.languages,
+    },
+    traits: monster.traits.map(t => ({ name: t.name, text: t.description })),
+    actions: monster.actions.map(a => ({
+      name: a.name,
+      toHit: a.toHit !== undefined ? `${a.toHit}` : undefined,
+      text: a.description,
+      attackFormula: a.attackFormula,
+    })),
+    legendaryActions: monster.legendaryActions?.map(l => ({ name: l.name, text: l.description })),
+    lairActions: monster.lairActions?.map(l => ({ name: l.name, text: l.description })),
+  };
+}
+
+export function createMonsterContentCardItem(monster: MonsterRawData, spawnPos: { x: number; y: number } = { x: 0, y: 0 }): MapItem {
+  const width = 450;
+  const height = 550;
+  const compendiumItem = createMonsterSearchItem(monster);
+
+  return {
+    id: `mon-card-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    name: `Монстр: ${monster.name}`,
+    type: 'card',
+    url: '',
+    thumbnailUrl: '',
+    width,
+    height,
+    aspectRatio: width / height,
+    position: {
+      x: spawnPos.x - Math.round(width / 2),
+      y: spawnPos.y - Math.round(height / 2),
+    },
+    scale: { x: 1, y: 1 },
+    rotation: 0,
+    zIndex: 65,
+    opacity: 1,
+    hash: 'mon-card-' + Math.random().toString(36).substring(2, 8),
+    fileSize: 0,
+    format: 'png',
+    category: 'Монстры',
+    layer: 'props',
+    isContentCard: true,
+    contentCardData: {
+      item: compendiumItem as any,
+      cardType: 'monsters',
+      viewMode: 'full',
+    },
+  };
+}
+
+export function createMonsterLoreItem(monster: MonsterRawData): WorldLoreItem {
+  const contentMarkdown = `
+# ${monster.name} (${monster.cr})
+
+**Тип:** ${monster.type} (${monster.size}, ${monster.alignment})  
+**Класс Доспеха:** ${monster.ac} (${monster.acSource}) | **Хиты:** ${monster.hp} (${monster.hitDice})  
+**Скорость:** ${monster.speed}  
+
+---
+
+### Характеристики:
+* **СИЛ:** ${monster.stats.STR} | **ЛОВ:** ${monster.stats.DEX} | **ТЕЛ:** ${monster.stats.CON}
+* **ИНТ:** ${monster.stats.INT} | **МУД:** ${monster.stats.WIS} | **ХАР:** ${monster.stats.CHA}
+
+**Чувства:** ${monster.senses} | **Языки:** ${monster.languages}  
+${monster.damageImmunities ? `**Иммунитеты к урону:** ${monster.damageImmunities}\n` : ''}${monster.damageResistances ? `**Сопротивления:** ${monster.damageResistances}\n` : ''}
+
+---
+
+### Описание и Обитание:
+${monster.description}
+
+**Среда обитания:** ${monster.habitat}  
+**Тактика боя:** ${monster.tactics}  
+**Добыча:** ${monster.loot}  
+
+---
+
+### Особенности:
+${monster.traits.map(t => `* **${t.name}:** ${t.description}`).join('\n')}
+
+### Действия:
+${monster.actions.map(a => `* **${a.name}:** ${a.description}`).join('\n')}
+  `.trim();
+
+  return {
+    id: `lore-mon-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+    worldId: 'dnd5e_faerun',
+    worldName: 'Забытые Королевства (Faerûn / D&D 5e)',
+    systemId: 'dnd5e',
+    name: `Бестиарий: ${monster.name}`,
+    category: 'lore_article',
+    summary: `${monster.name} (${monster.cr}). ${monster.type}. HP: ${monster.hp}, AC: ${monster.ac}`,
+    content: contentMarkdown,
+    tags: ['Бестиарий', 'Монстр', monster.family, monster.element, monster.cr],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+}
+
