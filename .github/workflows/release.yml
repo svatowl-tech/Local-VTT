@@ -59,14 +59,19 @@ jobs:
           - platform: 'windows-latest'
             args: ''
             target: ''
+            deployment_target: ''
           - platform: 'macos-latest'
             args: '--target universal-apple-darwin'
             target: 'universal-apple-darwin'
+            deployment_target: '10.13'
           - platform: 'ubuntu-22.04'
             args: ''
             target: ''
+            deployment_target: ''
 
     runs-on: ${{ matrix.platform }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.deployment_target || '10.13' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -113,6 +118,7 @@ jobs:
         uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MACOSX_DEPLOYMENT_TARGET: ${{ matrix.deployment_target || '10.13' }}
         with:
           tagName: ${{ needs.version-and-release.outputs.release_tag }}
           releaseName: ${{ needs.version-and-release.outputs.release_name }}
@@ -122,8 +128,8 @@ jobs:
             Кроссплатформенная настольная система для интерактивных столов и проекторов в настольных ролевых играх (D&D, Cyberpunk, Pathfinder, CoC, GURPS и др.).
             
             ### 📦 Доступные файлы для скачивания:
-            - **macOS (Universal 2: Intel + Apple Silicon M1/M2/M3/M4)**: 
-              - `.dmg` образ диска (универсальный для любых Mac)
+            - **macOS (Universal 2: Intel + Apple Silicon M1/M2/M3/M4, macOS 10.13+)**: 
+              - `.dmg` образ диска (универсальный для любых Mac начиная с High Sierra 10.13)
               - `.app.tar.gz`
             - **Windows (x64)**: 
               - `.msi` инсталлятор
@@ -134,8 +140,8 @@ jobs:
             
             ---
             
-            ### 🍎 Инструкция для пользователей macOS:
-            Приложение собрано в формате **Universal 2 Binary** и работает нативно на любых Mac с процессорами **Intel** и **Apple Silicon (M1/M2/M3/M4)**.
+            ### 🍎 Инструкция для пользователей macOS (10.13 High Sierra и новее):
+            Приложение собрано в формате **Universal 2 Binary** с целевой поддержкой систем начиная с **macOS 10.13 (High Sierra)** до новейших версий на процессорах **Intel** и **Apple Silicon (M1/M2/M3/M4)**.
             
             Если при первом запуске на macOS появляется системное сообщение Gatekeeper:
             > *"Файл «AetherMap» повреждён и его невозможно открыть"* / *"AetherMap is damaged and can't be opened"*
