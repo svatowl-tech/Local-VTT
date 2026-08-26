@@ -1,6 +1,8 @@
 import { AudioPlaylist, AudioTrack, SoundEffect } from '../types';
 import { DEFAULT_PLAYLISTS } from '../data/defaultPlaylists';
 import { autoTagResource } from '../utils/taggingEngine';
+import { soundSynthesizer } from './soundSynthesizer';
+import { checkIsTauri } from '../utils/apiUrlHelper';
 
 type AudioListener = () => void;
 
@@ -35,6 +37,7 @@ class AudioEngine {
   private currentQueueIndex: number = 0;
   
   private listeners: Set<AudioListener> = new Set();
+  private blobUrlCache: Map<string, string> = new Map();
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -155,7 +158,7 @@ class AudioEngine {
     this.currentQueueIndex = 0;
   }
 
-  private playTrackFromQueue(index: number): void {
+  private async playTrackFromQueue(index: number): Promise<void> {
     if (index < 0 || index >= this.shuffledTrackQueue.length) return;
 
     const track = this.shuffledTrackQueue[index];
@@ -163,7 +166,8 @@ class AudioEngine {
     this.currentTrackId = track.id;
 
     if (this.audioElement) {
-      this.audioElement.src = track.url;
+      const playableUrl = await this.resolvePlayableAudioUrl(track.url);
+      this.audioElement.src = playableUrl;
       this.audioElement.volume = this.volume;
       this.audioElement.currentTime = 0;
 
@@ -174,8 +178,24 @@ class AudioEngine {
             this.isPlaying = true;
             this.notifyListeners();
           })
-          .catch((err) => {
-            console.warn('Autoplay error or missing direct file audio stream:', err);
+          .catch(async (err) => {
+            console.debug('Direct stream failed, trying Tauri binary buffer fallback...', err);
+            if (checkIsTauri() && !playableUrl.startsWith('blob:')) {
+              const blobUrl = await this.readAudioAsBlobUrl(track.url);
+              if (blobUrl && this.audioElement) {
+                this.audioElement.src = blobUrl;
+                this.audioElement.play().then(() => {
+                  this.isPlaying = true;
+                  this.notifyListeners();
+                }).catch(() => {
+                  this.isPlaying = false;
+                  this.notifyListeners();
+                });
+                return;
+              }
+            }
+            this.isPlaying = false;
+            this.notifyListeners();
           });
       }
     }
@@ -481,23 +501,219 @@ class AudioEngine {
     if (typeof window === 'undefined') return;
 
     let url: string | undefined;
+    let preset: string | undefined;
+    let soundName: string = '';
+    let category: string = '';
 
     if (typeof effectOrUrlOrPreset === 'object') {
       url = effectOrUrlOrPreset.url;
-    } else {
-      url = effectOrUrlOrPreset.startsWith('http') || effectOrUrlOrPreset.startsWith('blob') ? effectOrUrlOrPreset : undefined;
+      preset = effectOrUrlOrPreset.presetType;
+      soundName = effectOrUrlOrPreset.name || '';
+      category = effectOrUrlOrPreset.category || '';
+    } else if (typeof effectOrUrlOrPreset === 'string') {
+      soundName = effectOrUrlOrPreset;
+      const lower = effectOrUrlOrPreset.toLowerCase();
+      const knownPresets = ['sword', 'dragon', 'thunder', 'spell', 'dice', 'horn', 'door', 'cheer', 'chime'];
+      if (knownPresets.includes(lower)) {
+        preset = lower;
+      } else if (
+        effectOrUrlOrPreset.startsWith('http://') ||
+        effectOrUrlOrPreset.startsWith('https://') ||
+        effectOrUrlOrPreset.startsWith('blob:') ||
+        effectOrUrlOrPreset.startsWith('data:') ||
+        effectOrUrlOrPreset.startsWith('asset://')
+      ) {
+        url = effectOrUrlOrPreset;
+      } else {
+        // Raw local path (e.g. J:\sfx\file.mp3 or assets/sfx/file.mp3)
+        url = effectOrUrlOrPreset;
+      }
     }
 
+    // 1. If it's a procedural preset sound without audio file URL, play synth directly
+    if (preset && !url) {
+      soundSynthesizer.playPreset(preset, this.sfxVolume);
+      return;
+    }
+
+    // 2. Play audio file stream with procedural fallback
     if (url) {
+      this.playAudioUrlWithFallback(url, soundName, category, preset);
+    } else if (preset) {
+      soundSynthesizer.playPreset(preset, this.sfxVolume);
+    }
+  }
+
+  /**
+   * Cleans and normalizes raw disk paths from asset protocol / URLs
+   */
+  public extractCleanDiskPath(urlOrPath: string): string {
+    if (!urlOrPath) return '';
+    let path = urlOrPath;
+
+    // Decode asset.localhost URL
+    if (path.startsWith('http://asset.localhost/')) {
+      path = decodeURIComponent(path.replace('http://asset.localhost/', ''));
+    } else if (path.startsWith('https://asset.localhost/')) {
+      path = decodeURIComponent(path.replace('https://asset.localhost/', ''));
+    } else if (path.startsWith('asset://localhost/')) {
+      path = decodeURIComponent(path.replace('asset://localhost/', ''));
+    } else if (path.startsWith('asset://')) {
+      path = decodeURIComponent(path.replace('asset://', ''));
+    }
+
+    // Windows drive normalization (e.g. /J:/sfx/file.mp3 -> J:\sfx\file.mp3)
+    path = path.replace(/^\/([a-zA-Z]:)/, '$1');
+    return path;
+  }
+
+  /**
+   * Reads an audio file natively via Tauri Rust backend and wraps it in a Blob URL
+   */
+  public async readAudioAsBlobUrl(urlOrPath: string): Promise<string | null> {
+    if (!urlOrPath) return null;
+    const cleanPath = this.extractCleanDiskPath(urlOrPath);
+
+    // Check cache
+    if (this.blobUrlCache.has(cleanPath)) {
+      return this.blobUrlCache.get(cleanPath)!;
+    }
+
+    if (checkIsTauri()) {
       try {
-        const audio = new Audio(url);
-        audio.volume = this.sfxVolume;
-        audio.play().catch((err) => {
-          console.warn('Failed to play SFX file:', err);
-        });
+        const { invoke } = await import('@tauri-apps/api/core');
+        const bytes = await invoke<number[]>('read_binary_file_rust', { filePath: cleanPath });
+        if (bytes && bytes.length > 0) {
+          const ext = cleanPath.split('.').pop()?.toLowerCase() || 'mp3';
+          const mimeMap: Record<string, string> = {
+            mp3: 'audio/mpeg',
+            wav: 'audio/wav',
+            ogg: 'audio/ogg',
+            flac: 'audio/flac',
+            aac: 'audio/aac',
+            m4a: 'audio/mp4',
+            weba: 'audio/webm',
+            webm: 'audio/webm',
+          };
+          const mimeType = mimeMap[ext] || 'audio/mpeg';
+          const blob = new Blob([new Uint8Array(bytes)], { type: mimeType });
+          const blobUrl = URL.createObjectURL(blob);
+          this.blobUrlCache.set(cleanPath, blobUrl);
+          return blobUrl;
+        }
       } catch (err) {
-        console.warn('SFX error:', err);
+        console.debug('Tauri read_binary_file_rust audio load failed:', err);
       }
+    }
+
+    return null;
+  }
+
+  /**
+   * Resolves a URL that is playable in the current browser/Tauri environment
+   */
+  public async resolvePlayableAudioUrl(rawUrl: string): Promise<string> {
+    if (!rawUrl) return '';
+
+    if (
+      rawUrl.startsWith('blob:') ||
+      rawUrl.startsWith('data:')
+    ) {
+      return rawUrl;
+    }
+
+    if (checkIsTauri()) {
+      // 1. Try instant Blob URL from cache
+      const cleanPath = this.extractCleanDiskPath(rawUrl);
+      if (this.blobUrlCache.has(cleanPath)) {
+        return this.blobUrlCache.get(cleanPath)!;
+      }
+
+      // 2. Convert raw local path with convertFileSrc if not already an asset URL
+      let targetUrl = rawUrl;
+      if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://') && !targetUrl.startsWith('asset://')) {
+        try {
+          const { convertFileSrc } = await import('@tauri-apps/api/core');
+          targetUrl = convertFileSrc(rawUrl);
+        } catch (e) {
+          console.debug('convertFileSrc error:', e);
+        }
+      }
+      return targetUrl;
+    }
+
+    return rawUrl;
+  }
+
+  private async playAudioUrlWithFallback(
+    rawUrl: string,
+    soundName: string,
+    category: string,
+    presetHint?: string
+  ): Promise<void> {
+    const playableUrl = await this.resolvePlayableAudioUrl(rawUrl);
+
+    try {
+      const audio = new Audio(playableUrl);
+      audio.volume = this.sfxVolume;
+      const playPromise = audio.play();
+
+      if (playPromise !== undefined) {
+        playPromise.catch(async (err) => {
+          console.debug(`Standard SFX audio play failed (${rawUrl}), trying binary Blob fallback...`, err);
+          
+          // If direct playback threw NotSupportedError / ERR_CONNECTION_REFUSED in Tauri, load via Rust Binary Blob
+          if (checkIsTauri() && !playableUrl.startsWith('blob:')) {
+            const blobUrl = await this.readAudioAsBlobUrl(rawUrl);
+            if (blobUrl) {
+              try {
+                const fallbackAudio = new Audio(blobUrl);
+                fallbackAudio.volume = this.sfxVolume;
+                await fallbackAudio.play();
+                return;
+              } catch (blobErr) {
+                console.debug('Fallback Blob audio play failed:', blobErr);
+              }
+            }
+          }
+
+          // Trigger intelligent procedural audio synthesis fallback
+          this.triggerFallbackSynth(soundName, category, presetHint);
+        });
+      }
+    } catch (err) {
+      console.debug('SFX audio creation error:', err);
+      this.triggerFallbackSynth(soundName, category, presetHint);
+    }
+  }
+
+  private triggerFallbackSynth(soundName: string, category: string, presetHint?: string): void {
+    if (presetHint) {
+      soundSynthesizer.playPreset(presetHint, this.sfxVolume);
+      return;
+    }
+
+    const text = (soundName + ' ' + category).toLowerCase();
+    if (text.includes('sword') || text.includes('меч') || text.includes('удар') || text.includes('бой')) {
+      soundSynthesizer.playPreset('sword', this.sfxVolume);
+    } else if (text.includes('thunder') || text.includes('гром') || text.includes('молния') || text.includes('шторм')) {
+      soundSynthesizer.playPreset('thunder', this.sfxVolume);
+    } else if (text.includes('spell') || text.includes('fire') || text.includes('пламя') || text.includes('магия')) {
+      soundSynthesizer.playPreset('spell', this.sfxVolume);
+    } else if (text.includes('dragon') || text.includes('монстр') || text.includes('рык') || text.includes('зверь')) {
+      soundSynthesizer.playPreset('dragon', this.sfxVolume);
+    } else if (text.includes('dice') || text.includes('кубик') || text.includes('бросок')) {
+      soundSynthesizer.playPreset('dice', this.sfxVolume);
+    } else if (text.includes('door') || text.includes('дверь') || text.includes('скрип')) {
+      soundSynthesizer.playPreset('door', this.sfxVolume);
+    } else if (text.includes('horn') || text.includes('горн') || text.includes('труба')) {
+      soundSynthesizer.playPreset('horn', this.sfxVolume);
+    } else if (text.includes('cheer') || text.includes('люди') || text.includes('таверна') || text.includes('толпа') || text.includes('shop') || text.includes('march')) {
+      soundSynthesizer.playPreset('cheer', this.sfxVolume);
+    } else if (text.includes('chime') || text.includes('звон') || text.includes('колокол')) {
+      soundSynthesizer.playPreset('chime', this.sfxVolume);
+    } else {
+      soundSynthesizer.playPreset('click', this.sfxVolume);
     }
   }
 }

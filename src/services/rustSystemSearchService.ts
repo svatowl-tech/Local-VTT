@@ -1,5 +1,6 @@
 import { tauriWindowManager } from './tauriWindowManager';
 import { dnd5eApiService } from './dnd5eApiService';
+import { checkIsTauri } from '../utils/apiUrlHelper';
 import {
   NormalizedStats,
   NormalizedAction,
@@ -154,25 +155,27 @@ class RustSystemSearchService {
       }
     }
 
-    // 2. Fallback to TypeScript Node.js backend
-    try {
-      const params = new URLSearchParams();
-      if (options.query) params.append('q', options.query);
-      if (options.systemId && options.systemId !== 'all') params.append('systemId', options.systemId);
-      if (options.category && options.category !== 'all') params.append('category', options.category);
-      if (options.limit) params.append('limit', options.limit.toString());
+    // 2. Fallback to TypeScript Node.js backend (in web browser mode)
+    if (!checkIsTauri()) {
+      try {
+        const params = new URLSearchParams();
+        if (options.query) params.append('q', options.query);
+        if (options.systemId && options.systemId !== 'all') params.append('systemId', options.systemId);
+        if (options.category && options.category !== 'all') params.append('category', options.category);
+        if (options.limit) params.append('limit', options.limit.toString());
 
-      const res = await fetch(`/api/systems/search?${params.toString()}`);
-      if (res.ok) {
-        const tsResult: SystemReferenceSearchResult = await res.json();
-        tsResult.results = [...dnd5eApiItems, ...memoryMatches, ...(tsResult.results || [])];
-        tsResult.totalMatches = tsResult.results.length;
-        tsResult.engine = '⚡ TS Backend Engine (Fallback)';
-        this.memoryCache.set(cacheKey, { result: tsResult, timestamp: Date.now() });
-        return tsResult;
+        const res = await fetch(`/api/systems/search?${params.toString()}`);
+        if (res.ok) {
+          const tsResult: SystemReferenceSearchResult = await res.json();
+          tsResult.results = [...dnd5eApiItems, ...memoryMatches, ...(tsResult.results || [])];
+          tsResult.totalMatches = tsResult.results.length;
+          tsResult.engine = '⚡ TS Backend Engine (Fallback)';
+          this.memoryCache.set(cacheKey, { result: tsResult, timestamp: Date.now() });
+          return tsResult;
+        }
+      } catch (tsErr) {
+        console.warn('TypeScript server search fallback error:', tsErr);
       }
-    } catch (tsErr) {
-      console.warn('TypeScript server search fallback error:', tsErr);
     }
 
     // 3. Emergency fallback if server is offline

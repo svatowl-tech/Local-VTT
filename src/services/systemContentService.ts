@@ -6,6 +6,7 @@ import {
   UniversalParsedEntity,
 } from '../types/systemDataTypes';
 import { rustSystemParserService } from './rustSystemParserService';
+import { checkIsTauri } from '../utils/apiUrlHelper';
 
 const BUILTIN_SYSTEMS_FALLBACK: TTRPGSystemManifest[] = [
   {
@@ -132,6 +133,36 @@ class SystemContentService {
     this.isLoading = true;
     this.notify();
 
+    // 1. Native Tauri mode: load system manifests and scan directory via Rust
+    if (checkIsTauri()) {
+      try {
+        this.systems = BUILTIN_SYSTEMS_FALLBACK;
+        this.lastFetched = Date.now();
+
+        if (rustSystemParserService.isRustAvailable()) {
+          try {
+            const items = await rustSystemParserService.scanSystemDirectory('assets/systems', this.activeSystemId);
+            this.cachedItems = items || [];
+          } catch (e) {
+            console.debug('Tauri native directory scan fallback info:', e);
+          }
+        }
+
+        this.notify();
+        return {
+          systems: this.systems,
+          activeSystemId: this.activeSystemId,
+          totalSystemsCount: this.systems.length,
+          totalSystemFilesCount: this.cachedItems.length,
+          lastScannedAt: Date.now(),
+        };
+      } finally {
+        this.isLoading = false;
+        this.notify();
+      }
+    }
+
+    // 2. Web/Express mode
     try {
       const res = await fetch('/api/systems');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -185,6 +216,24 @@ class SystemContentService {
   public async fetchActiveSystemItems(category?: string): Promise<SystemDataItem[]> {
     if (!this.activeSystemId) return [];
 
+    if (checkIsTauri()) {
+      if (rustSystemParserService.isRustAvailable()) {
+        try {
+          const items = await rustSystemParserService.scanSystemDirectory('assets/systems', this.activeSystemId);
+          let filtered = items || [];
+          if (category && category !== 'all') {
+            filtered = filtered.filter(it => it.category.toLowerCase() === category.toLowerCase());
+          }
+          this.cachedItems = filtered;
+          this.notify();
+          return this.cachedItems;
+        } catch (e) {
+          console.debug('Tauri native system scan error:', e);
+        }
+      }
+      return this.cachedItems;
+    }
+
     try {
       const url = category
         ? `/api/systems/${encodeURIComponent(this.activeSystemId)}/items?category=${encodeURIComponent(category)}`
@@ -224,6 +273,12 @@ class SystemContentService {
   public async setActiveSystem(systemId: string): Promise<boolean> {
     this.activeSystemId = systemId;
     this.notify();
+
+    if (checkIsTauri()) {
+      await this.fetchActiveSystemItems();
+      this.notify();
+      return true;
+    }
 
     try {
       const res = await fetch('/api/systems/active', {

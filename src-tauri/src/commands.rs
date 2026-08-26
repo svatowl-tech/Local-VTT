@@ -383,6 +383,16 @@ pub fn scan_lore_folder_incremental_rust(
 
 
 #[tauri::command]
+pub fn read_binary_file_rust(file_path: String) -> Result<Vec<u8>, String> {
+    use std::fs;
+    let path = Path::new(&file_path);
+    if !path.exists() {
+        return Err(format!("File does not exist: {}", file_path));
+    }
+    fs::read(path).map_err(|e| format!("Failed to read file {}: {}", file_path, e))
+}
+
+#[tauri::command]
 pub fn write_json_file_rust(
     root_path: String,
     sub_path: Vec<String>,
