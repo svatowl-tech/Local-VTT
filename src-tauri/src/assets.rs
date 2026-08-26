@@ -35,7 +35,7 @@ pub fn scan_assets_folder(root_dir: &Path) -> Result<DiskScanSummary, std::io::E
     let mut items = Vec::new();
     let mut categories_map: HashMap<String, Vec<String>> = HashMap::new();
 
-    let sections = ["maps", "props", "music", "sfx", "effects", "data"];
+    let sections = ["maps", "props", "music", "sfx", "effects", "systems", "lore", "data"];
     for section in &sections {
         let section_path = root_dir.join(section);
         if !section_path.exists() {
@@ -133,6 +133,7 @@ fn is_valid_asset_extension(ext: &str, section: &str) -> bool {
         "props" => ["png", "webp", "jpg", "jpeg", "svg"].contains(&ext),
         "music" | "sfx" => ["mp3", "ogg", "wav", "m4a", "flac", "aac"].contains(&ext),
         "effects" => ["webm", "mp4", "gif", "png", "webp"].contains(&ext),
+        "systems" | "lore" => ["json", "md", "txt", "yaml", "yml", "pdf", "xml", "csv"].contains(&ext),
         "data" => ["json"].contains(&ext),
         _ => false,
     }

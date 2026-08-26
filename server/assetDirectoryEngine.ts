@@ -2,6 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { systemDirectoryEngine } from './systemDirectoryEngine';
+import { taggingEngine } from './taggingEngine';
+import { CATEGORY_DEFINITIONS } from './regexTagDictionary';
 
 export interface DiskAssetMap {
   id: string;
@@ -84,6 +86,7 @@ export interface DiskAssetEffect {
   fileSize: number;
   mtime: number;
   relativePath: string;
+  tags?: string[];
 }
 
 export interface DiskScanResult {
@@ -101,6 +104,11 @@ export interface DiskScanResult {
   savedSessions: Array<{ filename: string; size: number; mtime: number }>;
   systemsCount?: number;
   systemFilesCount?: number;
+  tagSummary?: {
+    totalTags: number;
+    totalAssets: number;
+    categories: Record<string, Array<{ tag: string; count: number }>>;
+  };
   stats: {
     totalFiles: number;
     mapsCount: number;
@@ -116,163 +124,44 @@ export interface DiskScanResult {
 // Canonical Asset Directories Structure
 const DEFAULT_ASSETS_DIR_NAME = 'assets';
 
-export function autoTagResource(name: string, category?: string): string[] {
-  const tags: string[] = [];
-  const text = (name + ' ' + (category || '')).toLowerCase();
-
-  // 1. Combat / Бой / Сражение
-  const combatKeys = [
-    'бой', 'битв', 'сражен', 'дуэл', 'арен', 'атак', 'меч', 'удар', 'войн', 'конфликт', 'босс', 'драк', 'сеч', 'стыч', 'натиск', 'ярост', 'экшен', 'раунд', 'инициатив', 'рыцар', 'секир', 'стрел', 'лук', 'щит', 'копь', 'секира', 'алебард',
-    'combat', 'battle', 'fight', 'duel', 'arena', 'blood', 'attack', 'sword', 'hit', 'slash', 'strike', 'war', 'boss', 'skirmish', 'conflict', 'brawl', 'action', 'fury', 'initiative', 'knight', 'shield', 'arrow', 'bow', 'spear', 'gladiator', 'clash'
-  ];
-  if (combatKeys.some(k => text.includes(k))) {
-    tags.push('Бой', 'Combat');
-  }
-
-  // 2. Dungeon / Подземелье
-  const dungeonKeys = [
-    'подземел', 'данж', 'склеп', 'лабиринт', 'катакомб', 'тюрьм', 'камер', 'решетк', 'пыточн', 'саркофаг', 'гробниц', 'заточен', 'шахт',
-    'dungeon', 'crypt', 'labyrinth', 'catacomb', 'prison', 'cell', 'grate', 'torture', 'sarcophagus', 'tomb', 'jail', 'mine', 'vault'
-  ];
-  if (dungeonKeys.some(k => text.includes(k))) {
-    tags.push('Подземелье', 'Dungeon');
-  }
-
-  // 3. Forest / Nature / Лес / Природа
-  const natureKeys = [
-    'лес', 'природ', 'дерев', 'рощ', 'бор', 'джунгл', 'болот', 'полян', 'луг', 'трава', 'куст', 'сад', 'парк', 'троп', 'ветка', 'листв', 'дубрава', 'тайга',
-    'forest', 'nature', 'tree', 'grove', 'woods', 'jungle', 'swamp', 'clearing', 'meadow', 'grass', 'bush', 'garden', 'park', 'trail', 'path', 'branch', 'foliage', 'swampy', 'marsh'
-  ];
-  if (natureKeys.some(k => text.includes(k))) {
-    tags.push('Природа', 'Лес', 'Nature');
-  }
-
-  // 4. Town / City / Город / Улица / Урбан
-  const townKeys = [
-    'город', 'улиц', 'площад', 'здан', 'дом', 'рынок', 'базар', 'ратуш', 'мостовая', 'переулок', 'квартал', 'кабак', 'лавка', 'кузниц', 'магазин',
-    'town', 'city', 'street', 'square', 'building', 'house', 'market', 'bazaar', 'plaza', 'alley', 'quarter', 'tavern', 'shop', 'forge', 'smithy'
-  ];
-  if (townKeys.some(k => text.includes(k))) {
-    tags.push('Город', 'Town');
-  }
-
-  // 5. Tavern / Peace / Peaceful / Таверна / Мирный / Отдых
-  const tavernKeys = [
-    'таверн', 'пир', 'трактир', 'эль', 'пиво', 'кружк', 'весел', 'люди', 'мирн', 'отдых', 'сон', 'деревн', 'очаг', 'камин', 'разговор',
-    'tavern', 'feast', 'inn', 'ale', 'beer', 'mug', 'cheer', 'peaceful', 'rest', 'sleep', 'village', 'hearth', 'fireplace', 'chat', 'cozy'
-  ];
-  if (tavernKeys.some(k => text.includes(k))) {
-    tags.push('Мирный', 'Таверна', 'Tavern');
-  }
-
-  // 6. Water / Ocean / Sea / Вода / Море / Океан / Река / Озеро
-  const waterKeys = [
-    'вод', 'мор', 'океан', 'рек', 'озер', 'ручей', 'водопад', 'берег', 'пляж', 'пристан', 'порт', 'корабл', 'судно', 'парус', 'пират', 'шторм', 'буря', 'волна', 'глубин', 'бездна', 'остров',
-    'water', 'ocean', 'sea', 'river', 'lake', 'stream', 'waterfall', 'coast', 'beach', 'pier', 'port', 'ship', 'boat', 'sail', 'pirate', 'storm', 'wave', 'deep', 'abyss', 'island'
-  ];
-  if (waterKeys.some(k => text.includes(k))) {
-    tags.push('Вода', 'Море', 'Water');
-  }
-
-  // 7. Magic / Mystery / Магия / Волшебство / Мистика / Руны
-  const magicKeys = [
-    'маги', 'волшеб', 'колдов', 'заклин', 'ритуал', 'пентаграмм', 'рун', 'портал', 'алтар', 'астрал', 'кристалл', 'сфер', 'иллюзи', 'чародей', 'ведьм', 'некроман',
-    'magic', 'spell', 'wizard', 'ritual', 'pentagram', 'rune', 'portal', 'altar', 'astral', 'crystal', 'sphere', 'illusion', 'sorcerer', 'witch', 'necromancy', 'enchant'
-  ];
-  if (magicKeys.some(k => text.includes(k))) {
-    tags.push('Магия', 'Мистика', 'Magic');
-  }
-
-  // 8. Fire / Inferno / Hell / Огонь / Пламя / Ад / Лава
-  const fireKeys = [
-    'огон', 'пламя', 'костер', 'печ', 'лава', 'ад', 'преисподн', 'вулкан', 'пепел', 'угол', 'факел', 'искра',
-    'fire', 'flame', 'bonfire', 'furnace', 'lava', 'hell', 'inferno', 'volcano', 'ash', 'coal', 'torch', 'spark', 'burn'
-  ];
-  if (fireKeys.some(k => text.includes(k))) {
-    tags.push('Огонь', 'Пламя', 'Fire');
-  }
-
-  // 9. Space / Sci-Fi / Космос / Фантастика / Звезды
-  const scifiKeys = [
-    'космос', 'звезд', 'планет', 'корабль', 'кибер', 'лазер', 'нло', 'галактик', 'орбит', 'скафандр', 'техно',
-    'space', 'star', 'planet', 'cyber', 'laser', 'ufo', 'galaxy', 'orbit', 'spacesuit', 'techno', 'sci-fi', 'futuristic'
-  ];
-  if (scifiKeys.some(k => text.includes(k))) {
-    tags.push('Космос', 'Sci-Fi');
-  }
-
-  // 10. Horror / Death / Ужас / Хоррор / Смерть / Страх / Тьма
-  const horrorKeys = [
-    'ужас', 'хоррор', 'смерт', 'страх', 'тьма', 'призрак', 'зомби', 'мертв', 'скелет', 'чудовищ', 'монстр', 'вампир', 'оборотень', 'пугающ', 'крик', 'кров', 'убийств', 'кладбищ', 'могил',
-    'horror', 'death', 'fear', 'darkness', 'ghost', 'zombie', 'dead', 'skeleton', 'monster', 'beast', 'vampire', 'werewolf', 'creepy', 'scream', 'blood', 'murder', 'cemetery', 'grave', 'haunted'
-  ];
-  if (horrorKeys.some(k => text.includes(k))) {
-    tags.push('Ужас', 'Смерть', 'Horror');
-  }
-
-  // 11. Weather / Atmosphere / Погода / Атмосфера / Гром / Дождь / Ветер / Туман
-  const weatherKeys = [
-    'погод', 'атмосфер', 'гром', 'дожд', 'ветер', 'туман', 'облак', 'гроза', 'ураган', 'ливень', 'сырост', 'сквозняк', 'эхо',
-    'weather', 'atmosphere', 'thunder', 'rain', 'wind', 'fog', 'cloud', 'lightning', 'storm', 'hurricane', 'mist', 'damp', 'echo'
-  ];
-  if (weatherKeys.some(k => text.includes(k))) {
-    tags.push('Атмосфера', 'Погода', 'Weather');
-  }
-
-  // 12. Winter / Ice / Snow / Холод / Зима / Лед / Снег / Метель / Мороз
-  const winterKeys = [
-    'холод', 'зима', 'лед', 'снег', 'метел', 'мороз', 'вьюга', 'айсберг', 'замороз', 'иней',
-    'cold', 'winter', 'ice', 'snow', 'blizzard', 'frost', 'snowstorm', 'iceberg', 'freezing'
-  ];
-  if (winterKeys.some(k => text.includes(k))) {
-    tags.push('Зима', 'Холод', 'Winter');
-  }
-
-  // 13. Cave / Mountains / Пещера / Горы / Скалы
-  const caveKeys = [
-    'пещер', 'гор', 'скал', 'ущел', 'камен', 'шахт', 'грот', 'пик', 'хребет', 'валун',
-    'cave', 'mountain', 'rock', 'canyon', 'gorge', 'stone', 'mine', 'grotto', 'peak', 'boulder'
-  ];
-  if (caveKeys.some(k => text.includes(k))) {
-    tags.push('Пещера', 'Горы', 'Cave');
-  }
-
-  // 14. Ruins / Руины / Развалины / Древний / Заброшенный
-  const ruinsKeys = [
-    'руин', 'развалин', 'древн', 'заброш', 'осколк', 'храм', 'упадок', 'разрушен', 'ветх',
-    'ruins', 'ancient', 'abandoned', 'shards', 'temple', 'decay', 'destroyed', 'dilapidated'
-  ];
-  if (ruinsKeys.some(k => text.includes(k))) {
-    tags.push('Руины', 'Древность', 'Ruins');
-  }
-
-  // 15. Castle / Fortress / Замок / Крепость / Башня / Дворец
-  const castleKeys = [
-    'замок', 'крепост', 'башня', 'дворец', 'цитадел', 'бастион', 'стена', 'трон', 'покои', 'корол',
-    'castle', 'fortress', 'tower', 'palace', 'citadel', 'bastion', 'wall', 'throne', 'chamber', 'king', 'lord'
-  ];
-  if (castleKeys.some(k => text.includes(k))) {
-    tags.push('Замок', 'Крепость', 'Castle');
-  }
-
-  // Fallback default tag if none matched
-  if (tags.length === 0) {
-    tags.push('Общее', 'General');
-  }
-
-  // Deduplicate and return
-  return Array.from(new Set(tags));
+export function autoTagResource(
+  name: string,
+  category?: string,
+  section: string = 'maps',
+  fullDiskPath?: string,
+  contentText?: string
+): string[] {
+  const result = taggingEngine.autoTag(name, category || '', section, fullDiskPath, contentText);
+  return result.tags;
 }
 
 const SUBDIRECTORIES = {
-  maps: ['Dungeons', 'Cities', 'Wilderness', 'Battlemaps', 'Taverns', 'Bosses'],
-  props: ['Tokens', 'Furniture', 'Decorations', 'Monsters', 'Loot', 'Effects'],
-  music: ['Combat', 'Tavern', 'Exploration', 'Boss', 'Dungeon', 'Ambient'],
-  sfx: ['Combat', 'Magic', 'Monsters', 'Environment', 'Traps', 'Game'],
-  effects: ['Fire', 'Water', 'Portals', 'Lightning', 'Weather'],
-  systems: ['D&D_5e', 'Pathfinder_2e', 'Cyberpunk_RED', 'GURPS_4e', 'Call_of_Cthulhu'],
+  maps: ['Dungeons', 'Cities', 'Wilderness', 'Battlemaps', 'Taverns', 'Bosses', 'Castles', 'Caves', 'SciFi'],
+  props: ['Tokens', 'Furniture', 'Decorations', 'Monsters', 'NPCs', 'Loot', 'Buildings', 'Vehicles', 'Effects'],
+  music: ['Combat', 'Tavern', 'Exploration', 'Boss', 'Dungeon', 'Ambient', 'Peaceful', 'Suspense', 'Epic'],
+  sfx: ['Combat', 'Magic', 'Monsters', 'Environment', 'Traps', 'Game', 'Spells', 'UI', 'Weather'],
+  effects: ['Fire', 'Water', 'Portals', 'Lightning', 'Weather', 'Spells', 'Smoke', 'Magic_Runes'],
+  systems: ['D&D_5e', 'Pathfinder_2e', 'Cyberpunk_RED', 'GURPS_4e', 'Call_of_Cthulhu', 'Generic_Rules'],
   lore: ['Faerun_DND5e', 'Cyberpunk_RED', 'Call_of_Cthulhu', 'Eberron_DND5e', 'GURPS_4e', 'Generic_Worlds'],
-  data: ['Sessions', 'Presets', 'Layers'],
+  data: ['Sessions', 'Presets', 'Layers', 'Backups'],
+};
+
+const SYSTEM_NESTED_SUBFOLDERS: Record<string, string[]> = {
+  'D&D_5e': ['Monsters', 'Spells', 'Items', 'Classes', 'Races', 'Rules', 'Feats', 'Backgrounds'],
+  'Pathfinder_2e': ['Monsters', 'Spells', 'Items', 'Classes', 'Ancestries', 'Feats', 'Rules'],
+  'Cyberpunk_RED': ['Roles', 'Cyberware', 'Weapons', 'Gear', 'Netrunning', 'NPCs', 'Rules'],
+  'Call_of_Cthulhu': ['Investigators', 'Monsters', 'Spells', 'Tomes', 'Occupations', 'Rules', 'Sanity'],
+  'GURPS_4e': ['Advantages', 'Disadvantages', 'Skills', 'Equipment', 'Spells', 'Rules'],
+  'Generic_Rules': ['Rules', 'Tables', 'Homebrew'],
+};
+
+const LORE_NESTED_SUBFOLDERS: Record<string, string[]> = {
+  'Faerun_DND5e': ['Factions', 'NPCs', 'Locations', 'History', 'Chronicles', 'Deities', 'Articles'],
+  'Eberron_DND5e': ['Dragonmarked_Houses', 'Nations', 'Factions', 'NPCs', 'Locations', 'History', 'Articles'],
+  'Cyberpunk_RED': ['Corporations', 'Gangs', 'Fixers_and_Edgerunners', 'Districts', 'History', 'Articles'],
+  'Call_of_Cthulhu': ['Cults', 'Entities', 'Artifacts', 'Locations', 'Investigators', 'Articles'],
+  'GURPS_4e': ['Infinite_Worlds', 'Timelines', 'Patrol_Factions', 'NPCs', 'Locations', 'Articles'],
+  'Generic_Worlds': ['Factions', 'NPCs', 'Locations', 'History', 'Chronicles', 'Articles'],
 };
 
 function fastHash(str: string): string {
@@ -321,6 +210,42 @@ export class AssetDirectoryEngine {
           if (!fs.existsSync(subDir)) {
             fs.mkdirSync(subDir, { recursive: true });
           }
+
+          // Create nested subfolders for systems
+          if (section === 'systems' && SYSTEM_NESTED_SUBFOLDERS[sub]) {
+            for (const nested of SYSTEM_NESTED_SUBFOLDERS[sub]) {
+              const nestedDir = path.join(subDir, nested);
+              if (!fs.existsSync(nestedDir)) {
+                fs.mkdirSync(nestedDir, { recursive: true });
+              }
+            }
+            const sysReadmePath = path.join(subDir, 'README.txt');
+            if (!fs.existsSync(sysReadmePath)) {
+              fs.writeFileSync(
+                sysReadmePath,
+                `=== ПРАВИЛА И СПРАВОЧНИКИ: ${sub} ===\nКатегории:\n- Monsters: бестиарий, монстры и NPC\n- Spells: заклинания и способности\n- Items: экипировка, оружие и артефакты\n- Classes/Roles: классы и архетипы\n- Races/Ancestries: расы и происхождения\n- Rules: правила, таблицы и механики\n\nПомещайте сюда файлы .json, .md, .txt, .pdf или импортируйте через Универсальный Парсер.`,
+                'utf8'
+              );
+            }
+          }
+
+          // Create nested subfolders for lore
+          if (section === 'lore' && LORE_NESTED_SUBFOLDERS[sub]) {
+            for (const nested of LORE_NESTED_SUBFOLDERS[sub]) {
+              const nestedDir = path.join(subDir, nested);
+              if (!fs.existsSync(nestedDir)) {
+                fs.mkdirSync(nestedDir, { recursive: true });
+              }
+            }
+            const loreReadmePath = path.join(subDir, 'README.txt');
+            if (!fs.existsSync(loreReadmePath)) {
+              fs.writeFileSync(
+                loreReadmePath,
+                `=== ЛОР И ЭНЦИКЛОПЕДИЯ СЕТТИНГА: ${sub} ===\nКатегории:\n- Factions / Corporations / Cults: фракции, гильдии, культы\n- NPCs / Fixers / Entities: ключевые персонажи и сущности\n- Locations / Districts / Regions: города, регионы, достопримечательности\n- History / Chronicles: хроники, таймлайны и события\n- Articles / Deities: статьи и божества\n\nПомещайте сюда файлы статей (.json, .md, .txt) или импортируйте книги через Универсальный Парсер.`,
+                'utf8'
+              );
+            }
+          }
         }
 
         // README info file
@@ -337,19 +262,21 @@ export class AssetDirectoryEngine {
   private getSectionReadme(section: string): string {
     switch (section) {
       case 'maps':
-        return '=== AETHERMAP КАРТЫ ===\nПомещайте сюда файлы карт (.jpg, .png, .webp, .mp4, .webm).\nЛюбая подпапка автоматически станет категорией карт в интерфейсе мастера.';
+        return '=== AETHERMAP КАРТЫ ===\nПомещайте сюда файлы карт (.jpg, .png, .webp, .mp4, .webm).\nПодпапки (Dungeons, Cities, Wilderness, Battlemaps, Taverns, Bosses, Castles, Caves, SciFi) автоматически станут категориями карт в библиотеке.';
       case 'props':
-        return '=== AETHERMAP ОБЪЕКТЫ И ТОКЕНЫ ===\nПомещайте сюда токены, мебель, крыши и декорации (.png, .webp, .svg).\nКаждая подпапка станет категорией в каталоге объектов Sims Build Mode.';
+        return '=== AETHERMAP ОБЪЕКТЫ И ТОКЕНЫ ===\nПомещайте сюда токены, мебель, крыши, ловушки и декорации (.png, .webp, .svg).\nПодпапки (Tokens, Furniture, Decorations, Monsters, NPCs, Loot, Buildings, Vehicles, Effects) станут категориями в каталоге объектов.';
       case 'music':
-        return '=== AETHERMAP МУЗЫКА И САУНДТРЕКИ ===\nПомещайте сюда фоновую музыку (.mp3, .ogg, .wav, .m4a, .flac).\nКаждая подпапка автоматически станет плейлистом в плеере.';
+        return '=== AETHERMAP МУЗЫКА И САУНДТРЕКИ ===\nПомещайте сюда фоновую музыку (.mp3, .ogg, .wav, .m4a, .flac).\nКаждая подпапка (Combat, Tavern, Exploration, Boss, Dungeon, Ambient, Peaceful, Suspense, Epic) автоматически станет плейлистом в плеере.';
       case 'sfx':
-        return '=== AETHERMAP ЗВУКОВЫЕ ЭФФЕКТЫ (SFX) ===\nПомещайте сюда звуки (.mp3, .wav, .ogg).\nПодпапки станут банками на звуковой панели (SFX Soundboard).';
+        return '=== AETHERMAP ЗВУКОВЫЕ ЭФФЕКТЫ (SFX) ===\nПомещайте сюда звуки (.mp3, .wav, .ogg).\nПодпапки (Combat, Magic, Monsters, Environment, Traps, Game, Spells, UI, Weather) станут банками на звуковой панели (SFX Soundboard).';
       case 'effects':
-        return '=== AETHERMAP АНИМИРОВАННЫЕ ЭФФЕКТЫ (VFX) ===\nПомещайте сюда анимированные видео-эффекты и спрайты (.webm, .mp4, .gif, .png).';
+        return '=== AETHERMAP АНИМИРОВАННЫЕ ЭФФЕКТЫ (VFX) ===\nПомещайте сюда анимированные видео-эффекты и спецэффекты (.webm с прозрачностью, .mp4, .gif).\nПодпапки (Fire, Water, Portals, Lightning, Weather, Spells, Smoke, Magic_Runes) используются для наложения на стол.';
       case 'systems':
-        return '=== AETHERMAP РОЛЕВЫЕ СИСТЕМЫ И ПРАВИЛА (TTRPG SYSTEMS) ===\nПомещайте сюда папки систем с файлами монстров, заклинаний, рас, классов, предметов и правил (.json, .yaml, .md).';
+        return '=== AETHERMAP РОЛЕВЫЕ СИСТЕМЫ И ПРАВИЛА (TTRPG SYSTEMS) ===\nПомещайте сюда папки систем с файлами монстров, заклинаний, рас, классов, предметов и правил (D&D_5e, Pathfinder_2e, Cyberpunk_RED, GURPS_4e, Call_of_Cthulhu, Generic_Rules).\nКаждая система содержит подпапки Monsters, Spells, Items, Classes, Rules и др.';
+      case 'lore':
+        return '=== AETHERMAP ЛОР И ЭНЦИКЛОПЕДИЯ ВСЕЛЕННЫХ (WORLD LORE) ===\nПомещайте сюда статьи энциклопедии, книги, фракции, НИП и хроники по вселенным (Faerun_DND5e, Eberron_DND5e, Cyberpunk_RED, Call_of_Cthulhu, GURPS_4e, Generic_Worlds).\nКаждый мир содержит подпапки Factions, NPCs, Locations, History, Articles.';
       case 'data':
-        return '=== AETHERMAP СОХРАНЕНИЯ И ПРЕСЕТЫ ===\nЗдесь автоматически сохраняются сессии (.json).';
+        return '=== AETHERMAP СОХРАНЕНИЯ И ПРЕСЕТЫ ===\nЗдесь хранятся файлы резервных копий сессий (.json), пресеты стола и бэкапы (Sessions, Presets, Layers, Backups).';
       default:
         return 'AetherMap Asset Folder';
     }
@@ -381,6 +308,9 @@ export class AssetDirectoryEngine {
       const effects: DiskAssetEffect[] = [];
       const savedSessions: Array<{ filename: string; size: number; mtime: number }> = [];
 
+      // 0. Reset Inverted Index before scan
+      taggingEngine.clearIndex();
+
       let totalMtimeSum = 0;
       let totalFilesCount = 0;
 
@@ -401,9 +331,12 @@ export class AssetDirectoryEngine {
             const fileName = path.basename(fullPath, ext);
             const cleanRelPath = relPath.replace(/\\/g, '/');
             const fileUrl = `/api/assets/file/maps/${encodeURIComponent(cleanRelPath)}`;
+            const mapId = `disk-map-${crypto.createHash('md5').update(cleanRelPath).digest('hex').substring(0, 10)}`;
 
-            maps.push({
-              id: `disk-map-${crypto.createHash('md5').update(cleanRelPath).digest('hex').substring(0, 10)}`,
+            const tagResult = taggingEngine.autoTag(fileName, cleanRelPath, 'maps', fullPath);
+
+            const mapItem: DiskAssetMap = {
+              id: mapId,
               name: fileName,
               type: isVideo ? 'video' : 'image',
               url: fileUrl,
@@ -417,7 +350,23 @@ export class AssetDirectoryEngine {
               aspectRatio: 1.77,
               mtime: stat.mtimeMs,
               relativePath: cleanRelPath,
-              tags: autoTagResource(fileName, category),
+              tags: tagResult.tags,
+            };
+
+            maps.push(mapItem);
+
+            taggingEngine.indexAsset({
+              id: mapId,
+              name: fileName,
+              category,
+              primaryCategory: 'maps',
+              section: 'maps',
+              url: fileUrl,
+              path: cleanRelPath,
+              tags: tagResult.tags,
+              metadata: tagResult.metadata,
+              fileSize: stat.size,
+              lastModified: stat.mtimeMs,
             });
           }
         });
@@ -439,9 +388,12 @@ export class AssetDirectoryEngine {
             const fileName = path.basename(fullPath, ext);
             const cleanRelPath = relPath.replace(/\\/g, '/');
             const fileUrl = `/api/assets/file/props/${encodeURIComponent(cleanRelPath)}`;
+            const propId = `disk-prop-${crypto.createHash('md5').update(cleanRelPath).digest('hex').substring(0, 10)}`;
 
-            props.push({
-              id: `disk-prop-${crypto.createHash('md5').update(cleanRelPath).digest('hex').substring(0, 10)}`,
+            const tagResult = taggingEngine.autoTag(fileName, cleanRelPath, 'props', fullPath);
+
+            const propItem: DiskAssetProp = {
+              id: propId,
               name: fileName,
               category: category.toLowerCase(),
               categoryLabel: category,
@@ -455,7 +407,23 @@ export class AssetDirectoryEngine {
               fileSize: stat.size,
               mtime: stat.mtimeMs,
               relativePath: cleanRelPath,
-              tags: autoTagResource(fileName, category),
+              tags: tagResult.tags,
+            };
+
+            props.push(propItem);
+
+            taggingEngine.indexAsset({
+              id: propId,
+              name: fileName,
+              category,
+              primaryCategory: tagResult.primaryCategory,
+              section: 'props',
+              url: fileUrl,
+              path: cleanRelPath,
+              tags: tagResult.tags,
+              metadata: tagResult.metadata,
+              fileSize: stat.size,
+              lastModified: stat.mtimeMs,
             });
           }
         });
@@ -475,9 +443,12 @@ export class AssetDirectoryEngine {
             const fileName = path.basename(fullPath, ext);
             const cleanRelPath = relPath.replace(/\\/g, '/');
             const fileUrl = `/api/assets/file/music/${encodeURIComponent(cleanRelPath)}`;
+            const trackId = `disk-track-${crypto.createHash('md5').update(cleanRelPath).digest('hex').substring(0, 10)}`;
+
+            const tagResult = taggingEngine.autoTag(fileName, cleanRelPath, 'music', fullPath);
 
             const track: DiskAssetTrack = {
-              id: `disk-track-${crypto.createHash('md5').update(cleanRelPath).digest('hex').substring(0, 10)}`,
+              id: trackId,
               title: fileName,
               url: fileUrl,
               playlistName,
@@ -485,13 +456,27 @@ export class AssetDirectoryEngine {
               fileSize: stat.size,
               mtime: stat.mtimeMs,
               relativePath: cleanRelPath,
-              tags: autoTagResource(fileName, playlistName),
+              tags: tagResult.tags,
             };
 
             if (!playlistsMap.has(playlistName)) {
               playlistsMap.set(playlistName, []);
             }
             playlistsMap.get(playlistName)!.push(track);
+
+            taggingEngine.indexAsset({
+              id: trackId,
+              name: fileName,
+              category: playlistName,
+              primaryCategory: 'music',
+              section: 'music',
+              url: fileUrl,
+              path: cleanRelPath,
+              tags: tagResult.tags,
+              metadata: tagResult.metadata,
+              fileSize: stat.size,
+              lastModified: stat.mtimeMs,
+            });
           }
         });
       }
@@ -512,9 +497,12 @@ export class AssetDirectoryEngine {
             const fileName = path.basename(fullPath, ext);
             const cleanRelPath = relPath.replace(/\\/g, '/');
             const fileUrl = `/api/assets/file/sfx/${encodeURIComponent(cleanRelPath)}`;
+            const sfxId = `disk-sfx-${crypto.createHash('md5').update(cleanRelPath).digest('hex').substring(0, 10)}`;
+
+            const tagResult = taggingEngine.autoTag(fileName, cleanRelPath, 'sfx', fullPath);
 
             sfx.push({
-              id: `disk-sfx-${crypto.createHash('md5').update(cleanRelPath).digest('hex').substring(0, 10)}`,
+              id: sfxId,
               name: fileName,
               bank,
               icon: this.getSfxIcon(fileName, bank),
@@ -523,7 +511,21 @@ export class AssetDirectoryEngine {
               fileSize: stat.size,
               mtime: stat.mtimeMs,
               relativePath: cleanRelPath,
-              tags: autoTagResource(fileName, bank),
+              tags: tagResult.tags,
+            });
+
+            taggingEngine.indexAsset({
+              id: sfxId,
+              name: fileName,
+              category: bank,
+              primaryCategory: 'other',
+              section: 'sfx',
+              url: fileUrl,
+              path: cleanRelPath,
+              tags: tagResult.tags,
+              metadata: tagResult.metadata,
+              fileSize: stat.size,
+              lastModified: stat.mtimeMs,
             });
           }
         });
@@ -543,6 +545,7 @@ export class AssetDirectoryEngine {
             const fileName = path.basename(fullPath, ext);
             const cleanRelPath = relPath.replace(/\\/g, '/');
             const fileUrl = `/api/assets/file/effects/${encodeURIComponent(cleanRelPath)}`;
+            const effectId = `disk-effect-${crypto.createHash('md5').update(cleanRelPath).digest('hex').substring(0, 10)}`;
 
             let vfxType: 'fire' | 'water' | 'smoke' | 'lightning' | 'portal' | 'custom' = 'custom';
             const lower = (fileName + ' ' + category).toLowerCase();
@@ -552,8 +555,10 @@ export class AssetDirectoryEngine {
             else if (lower.includes('light') || lower.includes('молни')) vfxType = 'lightning';
             else if (lower.includes('portal') || lower.includes('портал')) vfxType = 'portal';
 
+            const tagResult = taggingEngine.autoTag(fileName, cleanRelPath, 'effects', fullPath);
+
             effects.push({
-              id: `disk-effect-${crypto.createHash('md5').update(cleanRelPath).digest('hex').substring(0, 10)}`,
+              id: effectId,
               name: fileName,
               category,
               url: fileUrl,
@@ -562,6 +567,21 @@ export class AssetDirectoryEngine {
               fileSize: stat.size,
               mtime: stat.mtimeMs,
               relativePath: cleanRelPath,
+              tags: tagResult.tags,
+            });
+
+            taggingEngine.indexAsset({
+              id: effectId,
+              name: fileName,
+              category,
+              primaryCategory: 'other',
+              section: 'effects',
+              url: fileUrl,
+              path: cleanRelPath,
+              tags: tagResult.tags,
+              metadata: tagResult.metadata,
+              fileSize: stat.size,
+              lastModified: stat.mtimeMs,
             });
           }
         });
@@ -629,6 +649,7 @@ export class AssetDirectoryEngine {
         savedSessions: savedSessions.sort((a, b) => b.mtime - a.mtime),
         systemsCount: systemsScan.totalSystemsCount,
         systemFilesCount: systemsScan.totalSystemFilesCount,
+        tagSummary: taggingEngine.getTagSummary(),
         stats: {
           totalFiles: totalFilesCount + systemsScan.totalSystemFilesCount,
           mapsCount: maps.length,

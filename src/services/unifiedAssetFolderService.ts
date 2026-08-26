@@ -12,19 +12,41 @@ const CANONICAL_FOLDERS = [
   'props',
   'music',
   'sfx',
+  'effects',
   'systems',
   'lore',
   'data',
 ] as const;
 
-const DEFAULT_SUBFOLDERS: Record<string, string[]> = {
-  maps: ['Dungeons', 'Cities', 'Wilderness', 'Battlemaps'],
-  props: ['Tokens', 'Decorations', 'Furniture', 'Effects'],
-  music: ['Combat', 'Tavern', 'Exploration', 'Boss'],
-  sfx: ['Magic', 'Combat', 'Monsters', 'Environment'],
-  systems: ['D&D_5e', 'Pathfinder_2e', 'Cyberpunk_RED', 'GURPS_4e', 'Call_of_Cthulhu'],
+export const DEFAULT_SUBFOLDERS: Record<string, string[]> = {
+  maps: ['Dungeons', 'Cities', 'Wilderness', 'Battlemaps', 'Taverns', 'Bosses', 'Castles', 'Caves', 'SciFi'],
+  props: ['Tokens', 'Decorations', 'Furniture', 'Monsters', 'NPCs', 'Loot', 'Buildings', 'Vehicles', 'Effects'],
+  music: ['Combat', 'Tavern', 'Exploration', 'Boss', 'Dungeon', 'Ambient', 'Peaceful', 'Suspense', 'Epic'],
+  sfx: ['Magic', 'Combat', 'Monsters', 'Environment', 'Traps', 'Game', 'Spells', 'UI', 'Weather'],
+  effects: ['Fire', 'Water', 'Portals', 'Lightning', 'Weather', 'Spells', 'Smoke', 'Magic_Runes'],
+  systems: ['D&D_5e', 'Pathfinder_2e', 'Cyberpunk_RED', 'GURPS_4e', 'Call_of_Cthulhu', 'Generic_Rules'],
   lore: ['Faerun_DND5e', 'Cyberpunk_RED', 'Call_of_Cthulhu', 'Eberron_DND5e', 'GURPS_4e', 'Generic_Worlds'],
-  data: ['Sessions', 'Presets', 'Layers'],
+  data: ['Sessions', 'Presets', 'Layers', 'Backups'],
+};
+
+// Nested subfolders for TTRPG rules & mechanics per system
+export const SYSTEM_NESTED_SUBFOLDERS: Record<string, string[]> = {
+  'D&D_5e': ['Monsters', 'Spells', 'Items', 'Classes', 'Races', 'Rules', 'Feats', 'Backgrounds'],
+  'Pathfinder_2e': ['Monsters', 'Spells', 'Items', 'Classes', 'Ancestries', 'Feats', 'Rules'],
+  'Cyberpunk_RED': ['Roles', 'Cyberware', 'Weapons', 'Gear', 'Netrunning', 'NPCs', 'Rules'],
+  'Call_of_Cthulhu': ['Investigators', 'Monsters', 'Spells', 'Tomes', 'Occupations', 'Rules', 'Sanity'],
+  'GURPS_4e': ['Advantages', 'Disadvantages', 'Skills', 'Equipment', 'Spells', 'Rules'],
+  'Generic_Rules': ['Rules', 'Tables', 'Homebrew'],
+};
+
+// Nested subfolders for lore, worldbuilding, and settings
+export const LORE_NESTED_SUBFOLDERS: Record<string, string[]> = {
+  'Faerun_DND5e': ['Factions', 'NPCs', 'Locations', 'History', 'Chronicles', 'Deities', 'Articles'],
+  'Eberron_DND5e': ['Dragonmarked_Houses', 'Nations', 'Factions', 'NPCs', 'Locations', 'History', 'Articles'],
+  'Cyberpunk_RED': ['Corporations', 'Gangs', 'Fixers_and_Edgerunners', 'Districts', 'History', 'Articles'],
+  'Call_of_Cthulhu': ['Cults', 'Entities', 'Artifacts', 'Locations', 'Investigators', 'Articles'],
+  'GURPS_4e': ['Infinite_Worlds', 'Timelines', 'Patrol_Factions', 'NPCs', 'Locations', 'Articles'],
+  'Generic_Worlds': ['Factions', 'NPCs', 'Locations', 'History', 'Chronicles', 'Articles'],
 };
 
 // Global directory handle in memory for the active session
@@ -73,23 +95,61 @@ export async function createCanonicalFolderStructure(rootHandle: any): Promise<v
   if (!rootHandle) return;
 
   for (const mainFolder of CANONICAL_FOLDERS) {
-    const folderHandle = await rootHandle.getDirectoryHandle(mainFolder, { create: true });
-    
-    // Create subfolders
-    const subfolders = DEFAULT_SUBFOLDERS[mainFolder] || [];
-    for (const sub of subfolders) {
-      await folderHandle.getDirectoryHandle(sub, { create: true });
-    }
-
-    // Create a helpful README.txt in each folder
     try {
-      const readmeHandle = await folderHandle.getFileHandle('README.txt', { create: true });
-      const writable = await readmeHandle.createWritable();
-      const text = getFolderReadmeText(mainFolder);
-      await writable.write(text);
-      await writable.close();
+      const folderHandle = await rootHandle.getDirectoryHandle(mainFolder, { create: true });
+      
+      // Create subfolders
+      const subfolders = DEFAULT_SUBFOLDERS[mainFolder] || [];
+      for (const sub of subfolders) {
+        try {
+          const subHandle = await folderHandle.getDirectoryHandle(sub, { create: true });
+
+          // Create nested subfolders for systems
+          if (mainFolder === 'systems' && SYSTEM_NESTED_SUBFOLDERS[sub]) {
+            for (const nested of SYSTEM_NESTED_SUBFOLDERS[sub]) {
+              try {
+                await subHandle.getDirectoryHandle(nested, { create: true });
+              } catch (e) {}
+            }
+            // System-level readme
+            try {
+              const sysReadme = await subHandle.getFileHandle('README.txt', { create: true });
+              const sysWritable = await sysReadme.createWritable();
+              await sysWritable.write(`=== ПРАВИЛА И СПРАВОЧНИКИ: ${sub} ===\nКатегории:\n- Monsters: бестиарий, монстры и NPC\n- Spells: заклинания и способности\n- Items: экипировка, оружие и артефакты\n- Classes/Roles: классы и архетипы\n- Races/Ancestries: расы и происхождения\n- Rules: правила, таблицы и механики\n\nПомещайте сюда файлы .json, .md, .txt, .pdf или импортируйте через Универсальный Парсер.`);
+              await sysWritable.close();
+            } catch (e) {}
+          }
+
+          // Create nested subfolders for lore
+          if (mainFolder === 'lore' && LORE_NESTED_SUBFOLDERS[sub]) {
+            for (const nested of LORE_NESTED_SUBFOLDERS[sub]) {
+              try {
+                await subHandle.getDirectoryHandle(nested, { create: true });
+              } catch (e) {}
+            }
+            // Lore world-level readme
+            try {
+              const loreReadme = await subHandle.getFileHandle('README.txt', { create: true });
+              const loreWritable = await loreReadme.createWritable();
+              await loreWritable.write(`=== ЛОР И ЭНЦИКЛОПЕДИЯ СЕТТИНГА: ${sub} ===\nКатегории:\n- Factions / Corporations / Cults: фракции, гильдии, культы\n- NPCs / Fixers / Entities: ключевые персонажи и сущности\n- Locations / Districts / Regions: города, регионы, достопримечательности\n- History / Chronicles: хроники, таймлайны и события\n- Articles / Deities: статьи и божества\n\nПомещайте сюда файлы статей (.json, .md, .txt) или импортируйте книги через Универсальный Парсер.`);
+              await loreWritable.close();
+            } catch (e) {}
+          }
+        } catch (e) {}
+      }
+
+      // Create a helpful README.txt in each main folder
+      try {
+        const readmeHandle = await folderHandle.getFileHandle('README.txt', { create: true });
+        const writable = await readmeHandle.createWritable();
+        const text = getFolderReadmeText(mainFolder);
+        await writable.write(text);
+        await writable.close();
+      } catch (e) {
+        // Ignored if cannot write
+      }
     } catch (e) {
-      // Ignored if cannot write
+      console.warn(`Could not create folder ${mainFolder}:`, e);
     }
   }
 }
@@ -97,26 +157,28 @@ export async function createCanonicalFolderStructure(rootHandle: any): Promise<v
 function getFolderReadmeText(folderName: string): string {
   switch (folderName) {
     case 'maps':
-      return '=== ПАПКА КАРТ (AETHERMAP) ===\nПомещайте сюда изображения и видео карт (.webp, .jpg, .png, .mp4, .webm).\nЛюбая созданная здесь подпапка (например, "Пещеры", "Замок") автоматически станет категорией карт в приложении.';
+      return '=== ПАПКА КАРТ (AETHERMAP) ===\nПомещайте сюда изображения и видео карт (.webp, .jpg, .png, .mp4, .webm).\nПодпапки (Dungeons, Cities, Wilderness, Battlemaps, Taverns, Bosses, Castles, Caves, SciFi) автоматически станут категориями карт в библиотеке.';
     case 'props':
-      return '=== ПАПКА ОБЪЕКТОВ И ТОКЕНОВ ===\nПомещайте сюда токены персонажей, монстров, мебель, крыши и декорации (.png, .webp).\nПодпапки станут категориями объектов.';
+      return '=== ПАПКА ОБЪЕКТОВ И ТОКЕНОВ ===\nПомещайте сюда токены персонажей, монстров, мебель, крыши, ловушки и декорации (.png, .webp).\nПодпапки (Tokens, Decorations, Furniture, Monsters, NPCs, Loot, Buildings, Vehicles, Effects) станут категориями объектов на столе.';
     case 'music':
-      return '=== ПАПКА МУЗЫКИ И САУНДТРЕКОВ ===\nПомещайте сюда фоновые треки (.mp3, .ogg, .wav, .m4a).\nКаждая подпапка (например, "Битва", "Таверна", "Исследование") автоматически станет плейлистом в аудиоплеере.';
+      return '=== ПАПКА МУЗЫКИ И САУНДТРЕКОВ ===\nПомещайте сюда фоновые треки (.mp3, .ogg, .wav, .m4a).\nКаждая подпапка (Combat, Tavern, Exploration, Boss, Dungeon, Ambient, Peaceful, Suspense, Epic) автоматически станет плейлистом в плеере.';
     case 'sfx':
-      return '=== ПАПКА ЗВУКОВЫХ ЭФФЕКТОВ (SFX) ===\nПомещайте сюда короткие звуки (.mp3, .wav, .ogg).\nПодпапки станут банками эффектов на звуковой панели (Soundboard).';
+      return '=== ПАПКА ЗВУКОВЫХ ЭФФЕКТОВ (SFX) ===\nПомещайте сюда короткие звуки (.mp3, .wav, .ogg).\nПодпапки (Magic, Combat, Monsters, Environment, Traps, Game, Spells, UI, Weather) станут банками эффектов на звуковой панели (Soundboard).';
+    case 'effects':
+      return '=== ПАПКА АНИМИРОВАННЫХ ЭФФЕКТОВ (VFX) ===\nПомещайте сюда видео и анимации спецэффектов (.webm с прозрачностью, .mp4, .gif).\nПодпапки (Fire, Water, Portals, Lightning, Weather, Spells, Smoke, Magic_Runes) используются для наложения эффектов на холст стола.';
     case 'systems':
-      return '=== ПАПКА ПРАВИЛ И МЕХАНИК (AETHERMAP SYSTEMS) ===\nПомещайте сюда бестиарии, справочники заклинаний, предметов и механических правил по системам (D&D 5e, Cyberpunk RED, Call of Cthulhu и др.).';
+      return '=== ПАПКА РОЛЕВЫХ СИСТЕМ И МЕХАНИК (AETHERMAP SYSTEMS) ===\nСодержит правила, бестиарии монстров, заклинания, экипировку и классы по системам (D&D_5e, Pathfinder_2e, Cyberpunk_RED, GURPS_4e, Call_of_Cthulhu, Generic_Rules).\nКаждая система содержит подпапки Monsters, Spells, Items, Classes, Rules и др.';
     case 'lore':
-      return '=== ПАПКА ЛОРА МИРОВ И СЕТТИНГОВ (AETHERMAP WORLD LORE) ===\nПомещайте сюда книги, статьи, справочники географии, фракций, НИП и миров по сеттингам (Faerun, Cyberpunk, Call of Cthulhu и др.).\nФайлы в каждой подпапке автоматически привязываются к соответствующему миру.';
+      return '=== ПАПКА ЛОРА МИРОВ И СЕТТИНГОВ (AETHERMAP WORLD LORE) ===\nСодержит энциклопедии, статьи, фракции, НИП и хроники по вселенным (Faerun_DND5e, Eberron_DND5e, Cyberpunk_RED, Call_of_Cthulhu, GURPS_4e, Generic_Worlds).\nКаждый мир содержит подпапки Factions, NPCs, Locations, History, Articles.';
     case 'data':
-      return '=== ПАПКА ДАННЫХ И СОХРАНЕНИЙ ===\nЗдесь хранятся файлы резервных копий сессий (.json), пресеты слоев и конфигурации.';
+      return '=== ПАПКА ДАННЫХ И СОХРАНЕНИЙ ===\nЗдесь хранятся файлы резервных копий сессий (.json), пресеты стола, сохраненные слои и бэкапы (Sessions, Presets, Layers, Backups).';
     default:
       return 'AetherMap asset folder';
   }
 }
 
 /**
- * Recursively scan directory and parse all categories, maps, music, sfx, and data
+ * Recursively scan directory and parse all categories, maps, music, sfx, effects, systems, lore, and data
  */
 export async function scanDiskAssetDirectory(
   rootHandle: any,
@@ -135,7 +197,14 @@ export async function scanDiskAssetDirectory(
       tracksCount: 0,
       sfxBanksCount: 0,
       sfxCount: 0,
+      effectsCount: 0,
+      effectsCategoriesCount: 0,
       savedSessionsCount: 0,
+      systemsCount: 0,
+      systemFilesCount: 0,
+      loreCount: 0,
+      worldsCount: 0,
+      totalCount: 0,
       lastSyncedAt: Date.now(),
     };
   }
@@ -148,9 +217,13 @@ export async function scanDiskAssetDirectory(
   let tracksCount = 0;
   let sfxBanksSet = new Set<string>();
   let sfxCount = 0;
+  let effectsCount = 0;
+  let effectsCategoriesSet = new Set<string>();
   let savedSessionsCount = 0;
   let systemsSet = new Set<string>();
   let systemFilesCount = 0;
+  let loreCount = 0;
+  let worldsSet = new Set<string>();
 
   try {
     for await (const [name, entry] of rootHandle.entries()) {
@@ -173,10 +246,18 @@ export async function scanDiskAssetDirectory(
           const res = await countFilesAndSubfolders(entry);
           sfxCount += res.fileCount;
           res.subfolders.forEach((f) => sfxBanksSet.add(f));
-        } else if (lowerName === 'systems') {
+        } else if (lowerName === 'effects') {
           const res = await countFilesAndSubfolders(entry);
+          effectsCount += res.fileCount;
+          res.subfolders.forEach((f) => effectsCategoriesSet.add(f));
+        } else if (lowerName === 'systems') {
+          const res = await countFilesAndSubfolders(entry, 3);
           systemFilesCount += res.fileCount;
           res.subfolders.forEach((f) => systemsSet.add(f));
+        } else if (lowerName === 'lore') {
+          const res = await countFilesAndSubfolders(entry, 3);
+          loreCount += res.fileCount;
+          res.subfolders.forEach((f) => worldsSet.add(f));
         } else if (lowerName === 'data') {
           const res = await countFilesAndSubfolders(entry);
           savedSessionsCount += res.fileCount;
@@ -186,6 +267,16 @@ export async function scanDiskAssetDirectory(
   } catch (err) {
     console.warn('Error reading directory entries:', err);
   }
+
+  const totalCount =
+    mapsCount +
+    propsCount +
+    tracksCount +
+    sfxCount +
+    effectsCount +
+    systemFilesCount +
+    loreCount +
+    savedSessionsCount;
 
   return {
     connected: true,
@@ -199,32 +290,39 @@ export async function scanDiskAssetDirectory(
     tracksCount,
     sfxBanksCount: sfxBanksSet.size,
     sfxCount,
+    effectsCount,
+    effectsCategoriesCount: effectsCategoriesSet.size,
     savedSessionsCount,
     systemsCount: systemsSet.size,
     systemFilesCount,
+    loreCount,
+    worldsCount: worldsSet.size,
+    totalCount,
     lastSyncedAt: Date.now(),
   };
 }
 
 async function countFilesAndSubfolders(
-  dirHandle: any
+  dirHandle: any,
+  maxDepth: number = 2,
+  currentDepth: number = 1
 ): Promise<{ fileCount: number; subfolders: string[] }> {
   let fileCount = 0;
   const subfolders: string[] = [];
 
-  for await (const [name, entry] of dirHandle.entries()) {
-    if (entry.kind === 'directory') {
-      subfolders.push(name);
-      // count inside subfolder
-      for await (const [subName, subEntry] of entry.entries()) {
-        if (subEntry.kind === 'file' && !subName.startsWith('.') && subName !== 'README.txt') {
-          fileCount++;
+  try {
+    for await (const [name, entry] of dirHandle.entries()) {
+      if (entry.kind === 'directory') {
+        subfolders.push(name);
+        if (currentDepth < maxDepth) {
+          const innerRes = await countFilesAndSubfolders(entry, maxDepth, currentDepth + 1);
+          fileCount += innerRes.fileCount;
         }
+      } else if (entry.kind === 'file' && !name.startsWith('.') && name !== 'README.txt') {
+        fileCount++;
       }
-    } else if (entry.kind === 'file' && !name.startsWith('.') && name !== 'README.txt') {
-      fileCount++;
     }
-  }
+  } catch (e) {}
 
   return { fileCount, subfolders };
 }
@@ -241,15 +339,17 @@ export async function loadAssetFolderContent(
   categories: string[];
   playlists: Array<{ playlistName: string; tracks: Array<{ title: string; url: string }> }>;
   sfx: Array<{ name: string; bank: string; url: string }>;
+  effects: Array<{ name: string; category: string; url: string; isVideo: boolean }>;
 }> {
   if (!rootHandle) {
-    return { maps: [], categories: [], playlists: [], sfx: [] };
+    return { maps: [], categories: [], playlists: [], sfx: [], effects: [] };
   }
 
   const discoveredMaps: MapItem[] = [];
   const categoriesSet = new Set<string>();
   const playlistsMap = new Map<string, Array<{ title: string; url: string }>>();
   const discoveredSfx: Array<{ name: string; bank: string; url: string }> = [];
+  const discoveredEffects: Array<{ name: string; category: string; url: string; isVideo: boolean }> = [];
 
   let processedCount = 0;
 
@@ -405,6 +505,41 @@ export async function loadAssetFolderContent(
             } catch (e) {}
           }
         }
+      } else if (lowerSection === 'effects') {
+        for await (const [subName, subEntry] of mainEntry.entries()) {
+          if (subEntry.kind === 'directory') {
+            const effectCategory = subName;
+            for await (const [fileName, fileEntry] of subEntry.entries()) {
+              if (fileEntry.kind === 'file' && !fileName.startsWith('.') && fileName !== 'README.txt') {
+                try {
+                  const file: File = await fileEntry.getFile();
+                  const cacheKey = `effect_${file.name}_${file.size}`;
+                  let url = objectUrlCache.get(cacheKey);
+                  if (!url) {
+                    url = URL.createObjectURL(file);
+                    objectUrlCache.set(cacheKey, url);
+                  }
+                  const isVideo = file.type.startsWith('video/') || /\.(mp4|webm|mov|m4v)$/i.test(file.name);
+                  const cleanName = file.name.replace(/\.[^/.]+$/, '');
+                  discoveredEffects.push({ name: cleanName, category: effectCategory, url, isVideo });
+                } catch (e) {}
+              }
+            }
+          } else if (subEntry.kind === 'file' && !subName.startsWith('.') && subName !== 'README.txt') {
+            try {
+              const file: File = await subEntry.getFile();
+              const cacheKey = `effect_${file.name}_${file.size}`;
+              let url = objectUrlCache.get(cacheKey);
+              if (!url) {
+                url = URL.createObjectURL(file);
+                objectUrlCache.set(cacheKey, url);
+              }
+              const isVideo = file.type.startsWith('video/') || /\.(mp4|webm|mov|m4v)$/i.test(file.name);
+              const cleanName = file.name.replace(/\.[^/.]+$/, '');
+              discoveredEffects.push({ name: cleanName, category: 'Общие Эффекты', url, isVideo });
+            } catch (e) {}
+          }
+        }
       } else if (lowerSection === 'sfx') {
         for await (const [subName, subEntry] of mainEntry.entries()) {
           if (subEntry.kind === 'directory') {
@@ -460,6 +595,7 @@ export async function loadAssetFolderContent(
     categories,
     playlists,
     sfx: discoveredSfx,
+    effects: discoveredEffects,
   };
 }
 
@@ -507,6 +643,7 @@ export function parseUploadedDirectoryFiles(files: FileList | File[]): {
   props: Array<{ name: string; category: string; file: File }>;
   music: Array<{ title: string; playlist: string; file: File }>;
   sfx: Array<{ name: string; bank: string; file: File }>;
+  effects: Array<{ name: string; category: string; file: File; isVideo: boolean }>;
   dataSessions: Array<{ name: string; file: File }>;
   detectedFolders: string[];
 } {
@@ -515,6 +652,7 @@ export function parseUploadedDirectoryFiles(files: FileList | File[]): {
     props: [] as Array<{ name: string; category: string; file: File }>,
     music: [] as Array<{ title: string; playlist: string; file: File }>,
     sfx: [] as Array<{ name: string; bank: string; file: File }>,
+    effects: [] as Array<{ name: string; category: string; file: File; isVideo: boolean }>,
     dataSessions: [] as Array<{ name: string; file: File }>,
     detectedFolders: [] as string[],
   };
@@ -549,6 +687,13 @@ export function parseUploadedDirectoryFiles(files: FileList | File[]): {
         name: file.name.replace(/\.[^/.]+$/, ''),
         category: categoryOrSub,
         file,
+      });
+    } else if (section === 'effects' && (isMediaVideo || isImage)) {
+      result.effects.push({
+        name: file.name.replace(/\.[^/.]+$/, ''),
+        category: categoryOrSub,
+        file,
+        isVideo: isMediaVideo,
       });
     } else if (section === 'music' && isAudio) {
       result.music.push({

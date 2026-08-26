@@ -33,6 +33,9 @@ import {
 } from './server/syncState';
 import { simplifyPoints, calculateSpellAreaMetrics } from './server/drawingEngine';
 import { assetDirectoryEngine } from './server/assetDirectoryEngine';
+import { taggingEngine } from './server/taggingEngine';
+import { CATEGORY_DEFINITIONS, ALL_REGEX_RULES } from './server/regexTagDictionary';
+import { TextTagExtractor } from './server/textTagExtractor';
 import { systemDirectoryEngine } from './server/systemDirectoryEngine';
 import { universalParserEngine } from './server/parsers/universalParserEngine';
 import { loreParserEngine } from './server/parsers/loreParserEngine';
@@ -628,6 +631,103 @@ async function startServer() {
   app.get('/api/assets/sessions', (req, res) => {
     const scan = assetDirectoryEngine.scanDisk();
     res.json({ success: true, sessions: scan.savedSessions });
+  });
+
+  // --- ASSET TAGGING & INVERTED INDEX FAST SEARCH ROUTES ---
+
+  // Get full tag dictionary metadata and regular expression rules
+  app.get('/api/assets/tag-dictionary', (req, res) => {
+    try {
+      res.json({
+        success: true,
+        categories: CATEGORY_DEFINITIONS,
+        totalRules: ALL_REGEX_RULES.length,
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || String(err) });
+    }
+  });
+
+  // Get all unique tags and tag distribution across categories
+  app.get('/api/assets/tags', (req, res) => {
+    try {
+      // Ensure disk is scanned and indexed
+      assetDirectoryEngine.scanDisk();
+      const summary = taggingEngine.getTagSummary();
+      res.json({
+        success: true,
+        ...summary,
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || String(err) });
+    }
+  });
+
+  // High-speed inverted index search with multi-tag filtering
+  app.get('/api/assets/search', (req, res) => {
+    try {
+      // Ensure disk is scanned and indexed
+      assetDirectoryEngine.scanDisk();
+
+      const {
+        q = '',
+        query = '',
+        tags,
+        category = 'all',
+        section,
+        mode = 'and',
+        matchMode = 'and',
+        limit = '100',
+        offset = '0',
+      } = req.query;
+
+      const rawTags = tags
+        ? (Array.isArray(tags) ? tags : String(tags).split(',')).map(t => String(t).trim()).filter(Boolean)
+        : [];
+
+      const searchQuery = String(q || query || '').trim();
+      const parsedLimit = Math.max(1, Math.min(parseInt(String(limit), 10) || 100, 1000));
+      const parsedOffset = Math.max(0, parseInt(String(offset), 10) || 0);
+      const safeMatchMode = (mode === 'or' || matchMode === 'or') ? 'or' : 'and';
+
+      const searchResult = taggingEngine.search({
+        query: searchQuery,
+        tags: rawTags,
+        category: category as any,
+        section: section ? String(section) : undefined,
+        matchMode: safeMatchMode,
+        limit: parsedLimit,
+        offset: parsedOffset,
+      });
+
+      res.json({
+        success: true,
+        ...searchResult,
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || String(err) });
+    }
+  });
+
+  // Extract tags from raw text, rules markdown, or json statblock
+  app.post('/api/assets/extract-tags', (req, res) => {
+    try {
+      const { text, filename = 'document.txt', section = 'other' } = req.body;
+      if (!text || typeof text !== 'string') {
+        res.status(400).json({ success: false, error: 'Text content is required' });
+        return;
+      }
+
+      const result = taggingEngine.autoTag(String(filename), '', String(section), undefined, text);
+      res.json({
+        success: true,
+        tags: result.tags,
+        primaryCategory: result.primaryCategory,
+        metadata: result.metadata,
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || String(err) });
+    }
   });
 
   // --- TTRPG SYSTEMS RULES & CONTENT ENGINE ROUTES ---

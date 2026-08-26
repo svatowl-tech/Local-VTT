@@ -445,9 +445,14 @@ export interface UnifiedAssetFolderStats {
   tracksCount: number;
   sfxBanksCount: number;
   sfxCount: number;
+  effectsCount?: number;
+  effectsCategoriesCount?: number;
   savedSessionsCount: number;
   systemsCount?: number;
   systemFilesCount?: number;
+  loreCount?: number;
+  worldsCount?: number;
+  totalCount?: number;
   activeSystemId?: string;
   lastSyncedAt?: number;
 }

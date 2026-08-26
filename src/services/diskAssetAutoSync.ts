@@ -587,7 +587,12 @@ class DiskAssetAutoSyncService {
         tracksCount: stats.tracksCount,
         propsCount: stats.propsCount,
         sfxCount: stats.sfxCount,
-        effectsCount: (stats as any).effectsCount || 0,
+        effectsCount: stats.effectsCount || content.effects?.length || 0,
+        systemsCount: stats.systemsCount || 0,
+        systemFilesCount: stats.systemFilesCount || 0,
+        loreCount: stats.loreCount || 0,
+        worldsCount: stats.worldsCount || 0,
+        totalCount: stats.totalCount || 0,
       };
 
       if (content.playlists.length > 0) {
