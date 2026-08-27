@@ -11,6 +11,8 @@ import { worldLoreService } from '../../services/worldLoreService';
 import { rustSystemSearchService } from '../../services/rustSystemSearchService';
 import { initiativeEngine } from '../../services/initiativeEngine';
 import { playUniversalSfx } from '../../utils/sfxAudio';
+import { PolzaGenerateButton } from '../polza/PolzaGenerateButton';
+import { PolzaEntityContext } from '../../types/polzaTypes';
 import {
   Shield,
   Heart,
@@ -166,6 +168,31 @@ ${monster.legendaryActions?.length ? `--- ЛЕГЕНДАРНЫЕ ДЕЙСТВИ�
         </div>
 
         <div className="flex items-center space-x-2">
+          <PolzaGenerateButton
+            entity={{
+              type: 'monster',
+              id: monster.name,
+              name: monster.name,
+              subtitle: `${monster.size} ${monster.type}, ${monster.alignment}`,
+              description: `Опасность: ${monster.cr} (${monster.xp} XP). Хиты: ${monster.hp} (${monster.hitDice}). КБ: ${monster.ac} (${monster.acSource}). Способности: ${monster.traits?.map((t) => `${t.name}: ${t.description}`).join(' ') || ''}. Действия: ${monster.actions?.map((a) => `${a.name}: ${a.description}`).join(' ') || ''}`,
+            }}
+            onApplyImage={(imgUrl) => {
+              (monster as any).avatarUrl = imgUrl;
+              (monster as any).tokenImg = imgUrl;
+              (monster as any).img = imgUrl;
+              if (onShowToast) onShowToast(`Арт Polza AI применён к ${monster.name}`);
+            }}
+            onPlaceOnTable={
+              onImportMapItem
+                ? (imgUrl) => {
+                    const token = createMonsterTokenItem({ ...monster, avatarUrl: imgUrl } as any);
+                    onImportMapItem(token);
+                    if (onShowToast) onShowToast(`Токен ${monster.name} с артом Polza AI добавлен на стол`);
+                  }
+                : undefined
+            }
+          />
+
           {/* Initiative Quantity Selector & Button */}
           <div className="flex items-center space-x-1 bg-zinc-950 p-1 rounded-xl border border-rose-900/50">
             <select

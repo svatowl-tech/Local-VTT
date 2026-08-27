@@ -55,6 +55,49 @@ let rootDirectoryHandle: any = null;
 // Cache map of file URL to prevent memory leaks with createObjectURL
 const objectUrlCache: Map<string, string> = new Map();
 
+async function getDirectoryEntries(dirHandle: any): Promise<Array<[string, any]>> {
+  const entries: Array<[string, any]> = [];
+  if (!dirHandle) return entries;
+  try {
+    if (typeof dirHandle.entries === 'function') {
+      const iterator = dirHandle.entries();
+      if (iterator) {
+        if (typeof iterator[Symbol.asyncIterator] === 'function') {
+          const asyncIter = iterator[Symbol.asyncIterator]();
+          while (true) {
+            const res = await asyncIter.next();
+            if (res.done) break;
+            if (res.value) entries.push(res.value);
+          }
+        } else if (typeof iterator[Symbol.iterator] === 'function') {
+          for (const item of iterator) {
+            entries.push(item);
+          }
+        } else if (typeof iterator.next === 'function') {
+          while (true) {
+            const res = await iterator.next();
+            if (res.done) break;
+            if (res.value) entries.push(res.value);
+          }
+        }
+      }
+    } else if (typeof dirHandle.values === 'function') {
+      const iterator = dirHandle.values();
+      if (iterator) {
+        const iter = (iterator[Symbol.asyncIterator] || iterator[Symbol.iterator] || (() => iterator))();
+        while (true) {
+          const res = await iter.next();
+          if (res.done) break;
+          if (res.value) entries.push([res.value.name, res.value]);
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to get directory entries safely:', e);
+  }
+  return entries;
+}
+
 export function getActiveDirectoryHandle() {
   return rootDirectoryHandle;
 }
@@ -226,7 +269,8 @@ export async function scanDiskAssetDirectory(
   let worldsSet = new Set<string>();
 
   try {
-    for await (const [name, entry] of rootHandle.entries()) {
+    const entries = await getDirectoryEntries(rootHandle);
+    for (const [name, entry] of entries) {
       if (entry.kind === 'directory') {
         const lowerName = name.toLowerCase();
 
@@ -311,7 +355,8 @@ async function countFilesAndSubfolders(
   const subfolders: string[] = [];
 
   try {
-    for await (const [name, entry] of dirHandle.entries()) {
+    const entries = await getDirectoryEntries(dirHandle);
+    for (const [name, entry] of entries) {
       if (entry.kind === 'directory') {
         subfolders.push(name);
         if (currentDepth < maxDepth) {
@@ -354,18 +399,21 @@ export async function loadAssetFolderContent(
   let processedCount = 0;
 
   try {
-    for await (const [mainName, mainEntry] of rootHandle.entries()) {
+    const mainEntries = await getDirectoryEntries(rootHandle);
+    for (const [mainName, mainEntry] of mainEntries) {
       if (mainEntry.kind !== 'directory') continue;
       const lowerSection = mainName.toLowerCase();
 
       if (lowerSection === 'maps' || lowerSection === 'props') {
         const isPropsLayer = lowerSection === 'props';
-        for await (const [subName, subEntry] of mainEntry.entries()) {
+        const subEntries = await getDirectoryEntries(mainEntry);
+        for (const [subName, subEntry] of subEntries) {
           if (subEntry.kind === 'directory') {
             const categoryName = subName;
             categoriesSet.add(categoryName);
 
-            for await (const [fileName, fileEntry] of subEntry.entries()) {
+            const fileEntries = await getDirectoryEntries(subEntry);
+            for (const [fileName, fileEntry] of fileEntries) {
               if (fileEntry.kind === 'file' && !fileName.startsWith('.') && fileName !== 'README.txt') {
                 processedCount++;
                 if (processedCount % 25 === 0) {
@@ -465,12 +513,14 @@ export async function loadAssetFolderContent(
           }
         }
       } else if (lowerSection === 'music') {
-        for await (const [subName, subEntry] of mainEntry.entries()) {
+        const musicEntries = await getDirectoryEntries(mainEntry);
+        for (const [subName, subEntry] of musicEntries) {
           if (subEntry.kind === 'directory') {
             const playlistName = subName;
             const tracks: Array<{ title: string; url: string }> = [];
 
-            for await (const [fileName, fileEntry] of subEntry.entries()) {
+            const trackEntries = await getDirectoryEntries(subEntry);
+            for (const [fileName, fileEntry] of trackEntries) {
               if (fileEntry.kind === 'file' && !fileName.startsWith('.') && fileName !== 'README.txt') {
                 try {
                   const file: File = await fileEntry.getFile();
@@ -506,10 +556,12 @@ export async function loadAssetFolderContent(
           }
         }
       } else if (lowerSection === 'effects') {
-        for await (const [subName, subEntry] of mainEntry.entries()) {
+        const effectEntries = await getDirectoryEntries(mainEntry);
+        for (const [subName, subEntry] of effectEntries) {
           if (subEntry.kind === 'directory') {
             const effectCategory = subName;
-            for await (const [fileName, fileEntry] of subEntry.entries()) {
+            const fileEntries = await getDirectoryEntries(subEntry);
+            for (const [fileName, fileEntry] of fileEntries) {
               if (fileEntry.kind === 'file' && !fileName.startsWith('.') && fileName !== 'README.txt') {
                 try {
                   const file: File = await fileEntry.getFile();
@@ -541,11 +593,13 @@ export async function loadAssetFolderContent(
           }
         }
       } else if (lowerSection === 'sfx') {
-        for await (const [subName, subEntry] of mainEntry.entries()) {
+        const sfxEntries = await getDirectoryEntries(mainEntry);
+        for (const [subName, subEntry] of sfxEntries) {
           if (subEntry.kind === 'directory') {
             const bankName = subName;
 
-            for await (const [fileName, fileEntry] of subEntry.entries()) {
+            const fileEntries = await getDirectoryEntries(subEntry);
+            for (const [fileName, fileEntry] of fileEntries) {
               if (fileEntry.kind === 'file' && !fileName.startsWith('.') && fileName !== 'README.txt') {
                 try {
                   const file: File = await fileEntry.getFile();

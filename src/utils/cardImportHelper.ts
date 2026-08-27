@@ -662,14 +662,24 @@ ${merchant.inventory.map((i, idx) => `${idx + 1}. **${i.name}** — \`${i.price}
 // ----------------------------------------------------------------------
 
 export function createMonsterTokenItem(monster: MonsterRawData, spawnPos: { x: number; y: number } = { x: 0, y: 0 }): MapItem {
-  const tokenUrl = generateMonsterTokenSvg(monster);
+  const artUrl = (monster as any).avatarUrl || (monster as any).img || (monster as any).tokenImg || ((monster.avatar && monster.avatar.startsWith('http')) ? monster.avatar : undefined);
+  const tokenUrl = generateMonsterTokenSvg({
+    name: monster.name,
+    cr: monster.cr,
+    hp: monster.hp,
+    ac: monster.ac,
+    avatar: artUrl || monster.avatar,
+    avatarUrl: artUrl,
+    tokenImg: artUrl,
+    img: artUrl,
+  });
   const size = monster.size === 'Huge' || monster.size === 'Gargantuan' ? 150 : monster.size === 'Large' ? 120 : 100;
   return {
     id: `token-mon-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
     name: `${monster.name} (${monster.cr}, КБ ${monster.ac}, HP ${monster.hp})`,
     type: 'image',
     url: tokenUrl,
-    thumbnailUrl: tokenUrl,
+    thumbnailUrl: artUrl || tokenUrl,
     width: size,
     height: size,
     aspectRatio: 1,
@@ -691,6 +701,8 @@ export function createMonsterTokenItem(monster: MonsterRawData, spawnPos: { x: n
 }
 
 export function createMonsterSearchItem(monster: MonsterRawData) {
+  const artUrl = (monster as any).avatarUrl || (monster as any).img || (monster as any).tokenImg || ((monster.avatar && monster.avatar.startsWith('http')) ? monster.avatar : undefined);
+
   return {
     id: `comp-mon-${monster.id}`,
     systemId: 'dnd5e',
@@ -705,6 +717,8 @@ export function createMonsterSearchItem(monster: MonsterRawData) {
     matchType: 'exact',
     tags: ['Монстр', monster.family, monster.element, monster.cr],
     relativePath: 'monsters',
+    img: artUrl,
+    tokenImg: artUrl,
     stats: {
       hp: monster.hp,
       ac: monster.ac,

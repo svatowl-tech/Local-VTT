@@ -11,8 +11,11 @@ export default defineConfig(() => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    esbuild: {
+      target: 'es2018',
+    },
     build: {
-      target: ['es2018', 'safari13'],
+      target: ['es2018', 'safari11'],
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.

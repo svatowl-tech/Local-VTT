@@ -98,38 +98,47 @@ export const PlayerBlackoutScreen: React.FC<Props> = memo(({ blackout }) => {
     }));
 
     let lastTime = performance.now();
+    let accumTime = 0;
 
     const render = (time: number) => {
       try {
         const dt = Math.min((time - lastTime) / 1000, 0.1);
         lastTime = time;
+        accumTime += dt;
 
-        ctx.clearRect(0, 0, width, height);
+        // Cap updates to ~30 FPS (0.033s interval) for high performance on older laptops
+        if (accumTime >= 0.033) {
+          accumTime = 0;
 
-        // Draw embers
-        for (const p of particles) {
-          p.y -= p.speedY * 40 * dt;
-          p.x += p.speedX * 30 * dt;
-          p.pulse += dt * 2;
+          ctx.clearRect(0, 0, width, height);
 
-          if (p.y < -10) {
-            p.y = height + 10;
-            p.x = Math.random() * width;
+          // Draw embers without costly shadowBlur software filters
+          for (const p of particles) {
+            p.y -= p.speedY * 1.3;
+            p.x += p.speedX * 1.0;
+            p.pulse += 0.06;
+
+            if (p.y < -10) {
+              p.y = height + 10;
+              p.x = Math.random() * width;
+            }
+            if (p.x < -10) p.x = width + 10;
+            if (p.x > width + 10) p.x = -10;
+
+            const currentOpacity = Math.max(0, Math.min(1, p.opacity * (0.6 + 0.4 * Math.sin(p.pulse))));
+
+            // Two-pass draw for glowing effect without expensive shadowBlur
+            ctx.fillStyle = p.color;
+            ctx.globalAlpha = currentOpacity * 0.35;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size * 2.2, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.globalAlpha = currentOpacity;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
           }
-          if (p.x < -10) p.x = width + 10;
-          if (p.x > width + 10) p.x = -10;
-
-          const currentOpacity = Math.max(0, Math.min(1, p.opacity * (0.6 + 0.4 * Math.sin(p.pulse))));
-
-          ctx.save();
-          ctx.fillStyle = p.color;
-          ctx.globalAlpha = currentOpacity;
-          ctx.shadowColor = p.color;
-          ctx.shadowBlur = 8;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.restore();
         }
 
         animId = requestAnimationFrame(render);
@@ -174,11 +183,11 @@ export const PlayerBlackoutScreen: React.FC<Props> = memo(({ blackout }) => {
         )}
 
         {/* 2. Direct Video / Preset Video */}
-        {(mode === 'preset_video' || mode === 'video') && resolvedMediaUrl && !loadError && (
+        {(mode === 'preset_video' || mode === 'video') && Boolean(resolvedMediaUrl && resolvedMediaUrl.trim()) && !loadError && (
           <video
             ref={videoRef}
             key={resolvedMediaUrl}
-            src={resolvedMediaUrl}
+            src={resolvedMediaUrl || undefined}
             autoPlay
             loop
             muted={!soundEnabled}
@@ -190,10 +199,10 @@ export const PlayerBlackoutScreen: React.FC<Props> = memo(({ blackout }) => {
         )}
 
         {/* 3. Custom Image / GIF */}
-        {mode === 'image' && resolvedMediaUrl && !loadError && (
+        {mode === 'image' && Boolean(resolvedMediaUrl && resolvedMediaUrl.trim()) && !loadError && (
           <img
             key={resolvedMediaUrl}
-            src={resolvedMediaUrl}
+            src={resolvedMediaUrl || undefined}
             alt=""
             onError={() => setLoadError(true)}
             className="w-full h-full object-cover pointer-events-none"

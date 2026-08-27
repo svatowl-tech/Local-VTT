@@ -40,6 +40,7 @@ import { systemDirectoryEngine } from './server/systemDirectoryEngine';
 import { universalParserEngine } from './server/parsers/universalParserEngine';
 import { loreParserEngine } from './server/parsers/loreParserEngine';
 import { loreDirectoryEngine } from './server/loreDirectoryEngine';
+import { campaignDirectoryEngine } from './server/campaignDirectoryEngine';
 import { streamFileWithRangeSupport } from './server/mediaStreamer';
 import { cullItemsInFrustum, SpatialItem } from './server/spatialEngine';
 import { evaluateRoll, simulateDistribution } from './server/diceEngine';
@@ -53,6 +54,8 @@ import { generateTravelingMerchant } from './server/travelingMerchantEngine';
 import { generateStationaryShop } from './server/stationaryShopEngine';
 import { generateEquipment } from './server/equipmentGeneratorEngine';
 import { generateMagicItem } from './server/magicItemsEngine';
+import { polzaEngine, POLZA_AVAILABLE_MODELS } from './server/polzaEngine';
+import { polzaJsonEngine, POLZA_TEXT_MODELS } from './server/polzaJsonEngine';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -842,6 +845,164 @@ async function startServer() {
       res.json({ success: result.success, filePath: result.filePath });
     } catch (err: any) {
       res.status(500).json({ error: err.message || 'Failed to save lore item' });
+    }
+  });
+
+  // --- CAMPAIGN DISK STORAGE & AI GENERATOR ENDPOINTS ---
+  app.get('/api/campaigns/list', (req, res) => {
+    try {
+      const list = campaignDirectoryEngine.listCampaigns();
+      res.json({ success: true, campaigns: list });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to list campaigns' });
+    }
+  });
+
+  app.get('/api/campaigns/load', (req, res) => {
+    try {
+      const id = (req.query.id as string) || 'active_campaign';
+      let campaign = campaignDirectoryEngine.loadCampaign(id);
+      if (!campaign && id !== 'active_campaign') {
+        campaign = campaignDirectoryEngine.loadCampaign('active_campaign');
+      }
+      res.json({ success: true, campaign });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to load campaign' });
+    }
+  });
+
+  app.post('/api/campaigns/save', (req, res) => {
+    try {
+      const { campaign } = req.body;
+      if (!campaign) {
+        res.status(400).json({ error: 'Missing campaign data in request body' });
+        return;
+      }
+      const result = campaignDirectoryEngine.saveCampaign(campaign);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to save campaign to disk' });
+    }
+  });
+
+  app.post('/api/campaigns/delete', (req, res) => {
+    try {
+      const { id } = req.body;
+      if (!id) {
+        res.status(400).json({ error: 'Missing campaign id' });
+        return;
+      }
+      const success = campaignDirectoryEngine.deleteCampaign(id);
+      res.json({ success });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to delete campaign' });
+    }
+  });
+
+  app.post('/api/campaigns/generate-ai', async (req, res) => {
+    try {
+      const specs = req.body || {};
+      const result = await campaignDirectoryEngine.generateCampaignWithAi(specs);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || 'Failed to generate campaign' });
+    }
+  });
+
+  // --- POLZA.AI IMAGE GENERATION & ART ENGINE ROUTES ---
+  app.get('/api/polza/text-models', (req, res) => {
+    try {
+      const hasEnvKey = Boolean(process.env.POLZA_AI_API_KEY && process.env.POLZA_AI_API_KEY.trim().length > 0);
+      res.json({
+        success: true,
+        models: POLZA_TEXT_MODELS,
+        defaultModel: 'deepseek/deepseek-r1-distill-llama-70b',
+        hasEnvKey,
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || 'Failed to fetch Polza text models' });
+    }
+  });
+
+  app.post('/api/polza/generate-json', async (req, res) => {
+    try {
+      const result = await polzaJsonEngine.generateStructuredEntity(req.body);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || 'Polza JSON generation failed' });
+    }
+  });
+
+  app.get('/api/polza/models', (req, res) => {
+    try {
+      const hasEnvKey = Boolean(process.env.POLZA_AI_API_KEY && process.env.POLZA_AI_API_KEY.trim().length > 0);
+      res.json({
+        success: true,
+        models: POLZA_AVAILABLE_MODELS,
+        defaultModel: 'tongyi-mai/z-image',
+        hasEnvKey,
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || 'Failed to fetch Polza models' });
+    }
+  });
+
+  app.post('/api/polza/prompt', (req, res) => {
+    try {
+      const { entity, stylePreset, customInstructions } = req.body;
+      if (!entity || typeof entity !== 'object') {
+        res.status(400).json({ success: false, error: 'Entity context is required' });
+        return;
+      }
+      const prompt = polzaEngine.buildPrompt(entity, stylePreset || 'dnd_cinematic', customInstructions);
+      const optimalSize = polzaEngine.getOptimalSizeForEntity(entity.type);
+      res.json({
+        success: true,
+        prompt,
+        optimalSize,
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || 'Failed to build prompt' });
+    }
+  });
+
+  app.post('/api/polza/generate', async (req, res) => {
+    try {
+      const result = await polzaEngine.generateImage(req.body);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || 'Polza generation failed' });
+    }
+  });
+
+  app.get('/api/polza/status/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const customApiKey = req.query.customApiKey as string | undefined;
+      const result = await polzaEngine.checkMediaStatus(id, customApiKey);
+      res.json(result);
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || 'Failed to check media status' });
+    }
+  });
+
+  app.post('/api/polza/save-image', async (req, res) => {
+    try {
+      const { imageUrl, b64, name } = req.body;
+      let result = null;
+      if (imageUrl) {
+        result = await polzaEngine.saveRemoteImageToDisk(imageUrl, name || 'art');
+      } else if (b64) {
+        result = await polzaEngine.saveBase64ImageToDisk(b64, name || 'art');
+      }
+
+      if (result) {
+        res.json({ success: true, ...result });
+      } else {
+        res.status(400).json({ success: false, error: 'Failed to save image to disk' });
+      }
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message || 'Failed to save image' });
     }
   });
 

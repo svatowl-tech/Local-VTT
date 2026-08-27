@@ -54,7 +54,7 @@ export const SaveTabToVaultModal: React.FC<Props> = ({
 
   const stats = mapVaultService.computeStats(currentTab);
   const primaryMap = (currentTab.maps || []).find((m) => m.id === currentTab.activeMapId) || currentTab.maps?.[0];
-  const previewImg = primaryMap?.thumbnailUrl || primaryMap?.url || '';
+  const previewImg = (primaryMap?.thumbnailUrl || primaryMap?.url || '').trim();
 
   const handleAddCategory = () => {
     if (newCategoryName.trim()) {
@@ -130,7 +130,7 @@ export const SaveTabToVaultModal: React.FC<Props> = ({
           <div className="flex items-center space-x-4 p-3.5 bg-zinc-950/60 border border-zinc-800 rounded-xl">
             <div className="w-24 h-16 rounded-lg bg-zinc-900 overflow-hidden border border-zinc-700 shrink-0 relative">
               {previewImg ? (
-                <img src={previewImg} alt="" className="w-full h-full object-cover" />
+                <img src={previewImg || undefined} alt="" className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-zinc-600 text-xs">
                   Нет фото

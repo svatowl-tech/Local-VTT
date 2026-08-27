@@ -11,10 +11,14 @@ import { DraggableResizablePanel } from './DraggableResizablePanel';
 import { SimsBuildModePanel } from './SimsBuildModePanel';
 import { MasterCompendiumPanel } from './systems/MasterCompendiumPanel';
 import { MasterLoreWikiPanel } from './lore/MasterLoreWikiPanel';
+import { CampaignTrackerPanel } from './CampaignTrackerPanel';
 import { WorldLoreItem } from '../types/worldLoreTypes';
 import { DungeonGeneratorPanel } from './DungeonGeneratorPanel';
 import { ToolSettingsFlyout } from './ToolSettingsFlyout';
 import { initiativeEngine } from '../services/initiativeEngine';
+import { createMonsterTokenItem } from '../utils/cardImportHelper';
+import { resolveFoundryImageUrl } from '../utils/foundryImageResolver';
+import { MonsterRawData } from '../types/generatorTypes';
 import {
   TabletopSessionState,
   CameraFrame,
@@ -39,6 +43,7 @@ import {
   Package,
   BookOpen,
   Globe,
+  Scroll,
 } from 'lucide-react';
 
 interface Props {
@@ -141,6 +146,7 @@ export const MasterDashboard: React.FC<Props> = memo(({
     } catch (e) {}
     return {
       initiative: false,
+      campaign: false,
       dungeon: false,
       sims: false,
       camera: false,
@@ -296,21 +302,79 @@ export const MasterDashboard: React.FC<Props> = memo(({
   );
 
   const handlePlaceCompendiumCardOnCanvas = useCallback(
-    (item: any) => {
+    (item: any, importType: 'card' | 'token' = 'card') => {
       const spawnX = session.camera ? Math.round(session.camera.x) : 0;
       const spawnY = session.camera ? Math.round(session.camera.y) : 0;
-      // Stagger slightly so multiple placed cards don't exactly cover each other
-      const offset = (session.maps.filter((m) => m.isContentCard).length % 6) * 30;
+      // Stagger slightly so multiple placed items don't exactly cover each other
+      const offset = (session.maps.filter((m) => m.isContentCard || m.type === 'image').length % 6) * 30;
+
+      const rawImg = item.tokenImg || item.img || item.data?.img || item.data?.image || item.data?.prototypeToken?.texture?.src;
+      const artUrl = resolveFoundryImageUrl(rawImg, item.systemId);
+
+      if (importType === 'token') {
+        const monsterRawData: MonsterRawData = {
+          id: item.id || `mon-${Date.now()}`,
+          name: item.name,
+          originalName: item.originalName,
+          type: item.summary || item.data?.type || 'Существо',
+          family: item.tags?.[0] || 'Монстр',
+          element: 'Обычный',
+          role: 'Боец',
+          size: item.data?.size || item.stats?.size || 'Medium',
+          alignment: item.data?.alignment || 'Нейтральный',
+          ac: item.stats?.ac ?? item.data?.armorClass ?? 10,
+          acSource: 'Доспех',
+          hp: item.stats?.hp ?? item.data?.hitPoints ?? 10,
+          hitDice: item.stats?.hitDice || '2d8',
+          speed: item.stats?.speed || '30 фт.',
+          cr: item.stats?.cr ? (String(item.stats.cr).startsWith('CR') ? String(item.stats.cr) : `CR ${item.stats.cr}`) : 'CR 1/4',
+          crValue: typeof item.stats?.cr === 'number' ? item.stats.cr : 0.25,
+          xp: item.stats?.xp || 50,
+          proficiencyBonus: 2,
+          stats: {
+            STR: item.stats?.attributes?.str ?? item.stats?.str ?? 10,
+            DEX: item.stats?.attributes?.dex ?? item.stats?.dex ?? 10,
+            CON: item.stats?.attributes?.con ?? item.stats?.con ?? 10,
+            INT: item.stats?.attributes?.int ?? item.stats?.int ?? 10,
+            WIS: item.stats?.attributes?.wis ?? item.stats?.wis ?? 10,
+            CHA: item.stats?.attributes?.cha ?? item.stats?.cha ?? 10,
+          },
+          traits: item.traits || [],
+          actions: item.actions || [],
+          description: item.summary || item.snippet || '',
+          habitat: 'Подземелье',
+          tactics: 'Атака',
+          loot: 'Трофеи',
+          avatar: artUrl || '👾',
+          avatarUrl: artUrl,
+          img: artUrl,
+          tokenImg: artUrl,
+        } as any;
+
+        const tokenItem = createMonsterTokenItem(monsterRawData, {
+          x: spawnX + offset,
+          y: spawnY + offset,
+        });
+
+        onUpdateMaps([...session.maps, tokenItem], tokenItem.id);
+        return;
+      }
 
       const width = 380;
       const height = 460;
+
+      const itemWithArt = {
+        ...item,
+        img: artUrl || item.img,
+        tokenImg: artUrl || item.tokenImg,
+      };
 
       const newCardItem: MapItem = {
         id: `card-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
         name: item.name,
         type: 'card',
         url: '',
-        thumbnailUrl: '',
+        thumbnailUrl: artUrl || '',
         width,
         height,
         aspectRatio: width / height,
@@ -328,7 +392,11 @@ export const MasterDashboard: React.FC<Props> = memo(({
         category: 'Справочник',
         layer: 'props',
         isContentCard: true,
-        contentCardData: item,
+        contentCardData: {
+          item: itemWithArt,
+          cardType: item.category || 'monsters',
+          viewMode: 'full',
+        },
       };
 
       onUpdateMaps([...session.maps, newCardItem], newCardItem.id);
@@ -436,6 +504,72 @@ export const MasterDashboard: React.FC<Props> = memo(({
     [session.camera, session.maps, onUpdateMaps]
   );
 
+  const handlePlaceCampaignItemOnCanvas = useCallback(
+    (type: 'quest' | 'npc' | 'location', data: any) => {
+      if (!data) return;
+      const spawnX = session.camera ? Math.round(session.camera.x) : 0;
+      const spawnY = session.camera ? Math.round(session.camera.y) : 0;
+      const offset = (session.maps.filter((m) => m.isContentCard).length % 6) * 30;
+
+      const width = 420;
+      const height = 460;
+
+      let cardTitle = data.name || data.title || 'Карточка кампании';
+      let cardCategory = type === 'quest' ? 'Квест' : type === 'npc' ? 'NPC' : 'Локация';
+      let cardSnippet = data.description || data.summary || data.personality || '';
+
+      const compendiumFormattedItem = {
+        id: data.id || `campaign-${Date.now()}`,
+        systemId: 'dnd5e',
+        systemName: 'Кампания',
+        name: cardTitle,
+        originalName: cardTitle,
+        category: cardCategory,
+        format: 'CampaignCard',
+        summary: data.summary || data.role || data.category || '',
+        snippet: cardSnippet,
+        score: 1,
+        matchType: 'campaign',
+        tags: data.tags || [cardCategory],
+        relativePath: 'campaign',
+        data,
+      };
+
+      const newCampaignCardItem: MapItem = {
+        id: `campaign-card-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        name: cardTitle,
+        type: 'card',
+        url: '',
+        thumbnailUrl: '',
+        width,
+        height,
+        aspectRatio: width / height,
+        position: {
+          x: spawnX - Math.round(width / 2) + offset,
+          y: spawnY - Math.round(height / 2) + offset,
+        },
+        scale: { x: 1, y: 1 },
+        rotation: 0,
+        zIndex: 65,
+        opacity: 1,
+        hash: 'camp-' + Math.random().toString(36).substring(2, 8),
+        fileSize: 0,
+        format: 'png',
+        category: 'Кампания',
+        layer: 'props',
+        isContentCard: true,
+        contentCardData: {
+          item: compendiumFormattedItem,
+          cardType: 'lore',
+          viewMode: 'full',
+        },
+      };
+
+      onUpdateMaps([...session.maps, newCampaignCardItem], newCampaignCardItem.id);
+    },
+    [session.camera, session.maps, onUpdateMaps]
+  );
+
   const propsCount = session.maps.filter((m) => m.layer === 'props').length;
 
   return (
@@ -510,10 +644,10 @@ export const MasterDashboard: React.FC<Props> = memo(({
             />
           </div>
 
-          {/* Top-Anchored Master Dock (Equalized 56x56 buttons with active glow) */}
+          {/* Top-Anchored Master Dock */}
           <div
             id="master_top_dock_container"
-            className="absolute top-3 right-4 z-40 pointer-events-auto select-none max-w-[calc(100%-6rem)] overflow-x-auto scrollbar-none"
+            className="absolute top-2.5 right-3 z-40 pointer-events-auto select-none max-w-[calc(100vw-80px)] overflow-x-auto scrollbar-none flex items-center justify-end"
           >
             <MasterTopDock
               openPanels={openPanels}
@@ -616,6 +750,7 @@ export const MasterDashboard: React.FC<Props> = memo(({
           minWidth={380}
           minHeight={180}
           zIndex={36}
+          noPadding={true}
         >
           <SimsBuildModePanel
             sessionMaps={session.maps}
@@ -705,6 +840,7 @@ export const MasterDashboard: React.FC<Props> = memo(({
           minWidth={480}
           minHeight={320}
           zIndex={35}
+          noPadding={true}
         >
           <MasterCompendiumPanel
             onOpenUniversalParser={onOpenUnifiedAssets}
@@ -725,6 +861,7 @@ export const MasterDashboard: React.FC<Props> = memo(({
           minWidth={520}
           minHeight={340}
           zIndex={36}
+          noPadding={true}
         >
           <MasterLoreWikiPanel
             onPlaceLoreOnCanvas={handlePlaceLoreCardOnCanvas}
@@ -732,6 +869,26 @@ export const MasterDashboard: React.FC<Props> = memo(({
             onOpenRuleItemInCompendium={(ruleId) => {
               if (!openPanels.reference) handleTogglePanel('reference');
             }}
+          />
+        </DraggableResizablePanel>
+
+        {/* 10. Floating Panel: 📜 Управление Кампанией (Campaign Tracker, Quests, Time & NPC Web) */}
+        <DraggableResizablePanel
+          id="panel_master_campaign"
+          isOpen={openPanels.campaign}
+          onClose={() => handleTogglePanel('campaign')}
+          handleTitle="Инструменты ведения кампании (Campaign Tracker)"
+          handleIcon={<Scroll className="w-3.5 h-3.5" />}
+          defaultPosition={{ x: 200, y: 65 }}
+          defaultSize={{ width: 880, height: 620 }}
+          minWidth={360}
+          minHeight={320}
+          zIndex={37}
+          noPadding={true}
+        >
+          <CampaignTrackerPanel
+            onClose={() => handleTogglePanel('campaign')}
+            onPlaceOnCanvas={handlePlaceCampaignItemOnCanvas}
           />
         </DraggableResizablePanel>
         </div>

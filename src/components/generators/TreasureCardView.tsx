@@ -8,6 +8,8 @@ import {
 } from '../../utils/cardImportHelper';
 import { worldLoreService } from '../../services/worldLoreService';
 import { playUniversalSfx } from '../../utils/sfxAudio';
+import { PolzaGenerateButton } from '../polza/PolzaGenerateButton';
+import { PolzaEntityContext } from '../../types/polzaTypes';
 import { 
   Copy, 
   Check, 
@@ -110,6 +112,32 @@ export const TreasureCardView: React.FC<Props> = ({
 
         {/* Action Group */}
         <div className="flex items-center space-x-1.5">
+          <PolzaGenerateButton
+            entity={{
+              type: 'item',
+              id: treasure.container || 'Сокровища',
+              name: treasure.container || 'Сокровищница',
+              subtitle: `Уровень ${treasure.level} (${treasure.grandTotalValueGp} gp)`,
+              description: `${rawText}. Содержит драгоценности: ${treasure.gems?.map((g) => g.name).join(', ') || ''}. Арт: ${treasure.artObjects?.map((a) => a.name).join(', ') || ''}. Магия: ${treasure.magicItems?.join(', ') || ''}`,
+            }}
+            onApplyImage={(imgUrl) => {
+              if (onShowToast) onShowToast(`Арт Polza AI применён к сокровищу`);
+            }}
+            onPlaceOnTable={
+              onImportMapItem
+                ? (imgUrl) => {
+                    const token = createTreasureTokenItem(treasure);
+                    if (token) {
+                      (token as any).img = imgUrl;
+                      (token as any).tokenImg = imgUrl;
+                      onImportMapItem(token);
+                      if (onShowToast) onShowToast(`Токен сокровища с артом Polza AI добавлен на стол`);
+                    }
+                  }
+                : undefined
+            }
+          />
+
           <button
             onClick={handlePlaceToken}
             className="px-2.5 py-1.5 bg-amber-950/80 hover:bg-amber-900 border border-amber-600/60 text-amber-200 text-xs font-bold rounded-lg shadow-sm transition-all flex items-center space-x-1.5 cursor-pointer active:scale-95"

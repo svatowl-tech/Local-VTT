@@ -50,11 +50,19 @@ export const AnimatedEffectsLayer: React.FC<Props> = memo(({
     }
 
     let time = 0;
+    let lastTs = performance.now();
     const firePool = firePoolRef.current;
     const steamPool = steamPoolRef.current;
     const spatialGrid = spatialGridRef.current;
 
-    const renderLoop = () => {
+    const renderLoop = (ts: number = performance.now()) => {
+      const dt = ts - lastTs;
+      if (document.hidden || dt < 33) {
+        rafRef.current = requestAnimationFrame(renderLoop);
+        return;
+      }
+      lastTs = ts;
+
       time += 0.04;
       ctx.clearRect(0, 0, width, height);
 

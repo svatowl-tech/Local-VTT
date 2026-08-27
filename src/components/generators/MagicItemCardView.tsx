@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { MagicItemRawData } from '../../types/generatorTypes';
 import { Wand2, Sparkles, Flame, Shield, Coins, BookOpen, Key, Copy, Check, Zap, Eye, Skull } from 'lucide-react';
+import { PolzaGenerateButton } from '../polza/PolzaGenerateButton';
+import { PolzaEntityContext } from '../../types/polzaTypes';
 
 interface MagicItemCardViewProps {
   magicData: MagicItemRawData;
@@ -10,6 +12,7 @@ interface MagicItemCardViewProps {
 
 export const MagicItemCardView: React.FC<MagicItemCardViewProps> = ({ magicData, rawText, onShowToast }) => {
   const [copied, setCopied] = React.useState(false);
+  const [customAvatarUrl, setCustomAvatarUrl] = useState<string | null>(null);
   const { item } = magicData;
 
   const handleCopyText = () => {
@@ -35,9 +38,20 @@ export const MagicItemCardView: React.FC<MagicItemCardViewProps> = ({ magicData,
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800/80 pb-3">
         <div className="flex items-center space-x-2.5">
-          <div className="p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-400 shrink-0">
-            <Wand2 className="w-5 h-5" />
-          </div>
+          {customAvatarUrl ? (
+            <div className="w-10 h-10 rounded-lg overflow-hidden bg-zinc-900 border border-amber-500/30 shrink-0">
+              <img
+                src={customAvatarUrl}
+                alt={item.name}
+                referrerPolicy="no-referrer"
+                className="w-full h-full object-cover"
+              />
+            </div>
+          ) : (
+            <div className="p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg text-amber-400 shrink-0">
+              <Wand2 className="w-5 h-5" />
+            </div>
+          )}
           <div>
             <h3 className="text-sm font-bold text-amber-300 tracking-wide">{item.name}</h3>
             <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
@@ -53,9 +67,24 @@ export const MagicItemCardView: React.FC<MagicItemCardViewProps> = ({ magicData,
             {item.rarityRu}
           </span>
 
+          <PolzaGenerateButton
+            entity={{
+              type: 'item',
+              id: item.name,
+              name: item.name,
+              subtitle: `${item.rarityRu} ${item.typeNameRu}`,
+              rarity: item.rarity,
+              description: `${item.description || ''}. ${item.lore || ''}. ${item.activeAbility || ''}`,
+            }}
+            onApplyImage={(imgUrl) => {
+              setCustomAvatarUrl(imgUrl);
+              if (onShowToast) onShowToast(`Арт Polza AI применён к ${item.name}`);
+            }}
+          />
+
           <button
             onClick={handleCopyText}
-            className="flex items-center space-x-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-amber-300 text-xs font-semibold rounded-lg border border-zinc-700/80 transition-colors"
+            className="flex items-center space-x-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-amber-300 text-xs font-semibold rounded-lg border border-zinc-700/80 transition-colors cursor-pointer"
           >
             {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
             <span>{copied ? 'Скопировано' : 'Копировать'}</span>

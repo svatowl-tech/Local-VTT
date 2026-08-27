@@ -73,6 +73,13 @@ export const spatialDiceService = {
   },
 
   /**
+   * Quick single die roll helper
+   */
+  async rollDice(sides: number, count: number = 1): Promise<DiceRollResult> {
+    return this.roll(`${count}d${sides}`);
+  },
+
+  /**
    * Monte Carlo distribution simulation (10k+ iterations in ms)
    */
   async simulate(expression: string, iterations: number = 25000): Promise<DiceDistributionResult | null> {

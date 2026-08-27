@@ -45,6 +45,7 @@ export const DraggableResizablePanel: React.FC<Props> = ({
   handleIcon,
   zIndex = 30,
   showReset = true,
+  noPadding = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const measuredSizeRef = useRef({ width: 0, height: 0 });
@@ -139,6 +140,13 @@ export const DraggableResizablePanel: React.FC<Props> = ({
   // Measure element size with ResizeObserver and re-clamp if overflowing
   useEffect(() => {
     if (!isOpen || !containerRef.current) return;
+    if (typeof ResizeObserver === 'undefined') {
+      const rect = containerRef.current.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        measuredSizeRef.current = { width: rect.width, height: rect.height };
+      }
+      return;
+    }
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
@@ -322,7 +330,7 @@ export const DraggableResizablePanel: React.FC<Props> = ({
       </div>
 
       {/* Main Content Area (Fluid, no crop on resize) */}
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden ${noPadding ? '' : 'p-3'} custom-scrollbar flex flex-col">
+      <div className={`flex-1 min-h-0 min-w-0 ${noPadding ? '' : 'p-3'} overflow-y-auto overflow-x-hidden custom-scrollbar flex flex-col`}>
         {children}
       </div>
 

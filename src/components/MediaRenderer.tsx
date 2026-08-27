@@ -47,13 +47,15 @@ export const MediaRenderer: React.FC<Props> = memo(({ mapItem, className }) => {
     }
   };
 
+  const hasValidMedia = Boolean(resolvedUrl && resolvedUrl.trim() && !loadError);
+
   if (mapItem.type === 'video') {
     return (
       <div className="w-full h-full relative bg-zinc-950 overflow-hidden select-none">
-        {resolvedUrl && !loadError ? (
+        {hasValidMedia ? (
           <video
             key={resolvedUrl}
-            src={resolvedUrl}
+            src={resolvedUrl || undefined}
             autoPlay
             loop
             muted
@@ -77,10 +79,10 @@ export const MediaRenderer: React.FC<Props> = memo(({ mapItem, className }) => {
 
   return (
     <div className="w-full h-full relative bg-zinc-950 overflow-hidden select-none">
-      {resolvedUrl && !loadError ? (
+      {hasValidMedia ? (
         <img
           key={resolvedUrl}
-          src={resolvedUrl}
+          src={resolvedUrl || undefined}
           alt=""
           aria-label={mapItem.name}
           loading="eager"

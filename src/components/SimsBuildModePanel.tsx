@@ -19,6 +19,8 @@ import {
   Info,
   Maximize2,
 } from 'lucide-react';
+import { PolzaJsonGenerateButton } from './polza/PolzaJsonGenerateButton';
+import { PolzaQuickInlineGenerator } from './polza/PolzaQuickInlineGenerator';
 
 interface Props {
   sessionMaps: MapItem[];
@@ -179,11 +181,24 @@ export const SimsBuildModePanel: React.FC<Props> = ({
           </div>
         )}
 
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <PolzaQuickInlineGenerator
+            entityType="prop"
+            placeholder="Сундук, магический алтарь, ловушка, портал..."
+            buttonLabel="Сгенерировать декор"
+            onGenerated={(res) => {
+              if (res && res.name) {
+                setPlacedFeedback(res.name);
+                setTimeout(() => setPlacedFeedback(null), 3000);
+              }
+            }}
+          />
+
           {onOpenUploadModal && (
             <button
+              type="button"
               onClick={onOpenUploadModal}
-              className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 rounded-lg text-xs font-medium transition-all flex items-center space-x-1"
+              className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 rounded-lg text-xs font-medium transition-all flex items-center space-x-1 cursor-pointer"
               title="Загрузить свой файл объекта"
             >
               <Upload className="w-3.5 h-3.5 text-amber-400" />
@@ -193,8 +208,9 @@ export const SimsBuildModePanel: React.FC<Props> = ({
 
           {onOpenUnifiedAssets && (
             <button
+              type="button"
               onClick={onOpenUnifiedAssets}
-              className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-medium transition-all flex items-center space-x-1"
+              className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-medium transition-all flex items-center space-x-1 cursor-pointer"
               title="Медиатека ассетов"
             >
               <Layers className="w-3.5 h-3.5" />
@@ -282,12 +298,16 @@ export const SimsBuildModePanel: React.FC<Props> = ({
 
                       {/* Preview Image Box */}
                       <div className="w-16 h-16 rounded-xl bg-zinc-950 border border-zinc-800/80 flex items-center justify-center p-1 my-1 overflow-hidden group-hover:border-amber-500/40 transition-colors">
-                        <img
-                          src={prop.url}
-                          alt={prop.name}
-                          className="max-w-full max-h-full object-contain filter drop-shadow-md group-hover:scale-110 transition-transform duration-200"
-                          loading="lazy"
-                        />
+                        {prop.url && prop.url.trim() ? (
+                          <img
+                            src={prop.url}
+                            alt={prop.name}
+                            className="max-w-full max-h-full object-contain filter drop-shadow-md group-hover:scale-110 transition-transform duration-200"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <span className="text-2xl select-none">{prop.icon || '📦'}</span>
+                        )}
                       </div>
 
                       {/* Item Title & Place Action */}

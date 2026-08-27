@@ -9,10 +9,12 @@ import {
   BookOpen,
   Globe,
   Dices,
+  Scroll,
 } from 'lucide-react';
 
 export interface OpenPanelsState {
   initiative: boolean;
+  campaign: boolean;
   sims: boolean;
   camera: boolean;
   fog: boolean;
@@ -79,6 +81,25 @@ export const MasterTopDock: React.FC<Props> = memo(({
         </div>
         <span className="text-[9px] font-bold text-amber-300/90 group-hover:text-amber-300 tracking-tight mt-0.5 truncate max-w-[48px]">
           {inCombat ? `Р.${combatRound}` : 'Бой'}
+        </span>
+      </button>
+
+      {/* 1.5. Кампания (Campaign Tracker, Quests, Time & NPC Web) */}
+      <button
+        id="dock_btn_campaign"
+        onClick={() => onTogglePanel('campaign')}
+        className={`relative w-14 h-14 rounded-2xl flex flex-col items-center justify-center p-1 transition-all duration-200 group active:scale-95 shadow-lg ${
+          openPanels.campaign
+            ? 'bg-amber-500/25 border-2 border-amber-400 text-amber-300 ring-2 ring-amber-500/30 scale-105 shadow-amber-500/20'
+            : 'bg-zinc-950/90 border border-amber-500/40 hover:border-amber-400 hover:bg-zinc-900 text-amber-400 hover:scale-105'
+        }`}
+        title="Инструменты ведения кампании (Время, Квесты, Локации, NPC, Сессии, Казна)"
+      >
+        <div className="w-6 h-6 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 group-hover:bg-amber-500 group-hover:text-zinc-950 transition-all duration-200 shadow-sm">
+          <Scroll className="w-3.5 h-3.5" />
+        </div>
+        <span className="text-[9px] font-bold text-amber-300/90 group-hover:text-amber-300 tracking-tight mt-0.5 truncate max-w-[48px]">
+          Кампания
         </span>
       </button>
 

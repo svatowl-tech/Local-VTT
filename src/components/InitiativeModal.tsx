@@ -38,6 +38,8 @@ import {
   ArrowDownUp,
   Sliders,
 } from 'lucide-react';
+import { PolzaJsonGenerateButton } from './polza/PolzaJsonGenerateButton';
+import { PolzaQuickInlineGenerator } from './polza/PolzaQuickInlineGenerator';
 
 interface Props {
   isOpen: boolean;
@@ -788,16 +790,30 @@ export const InitiativeModal: React.FC<Props> = ({
             {/* PLAYER DATABASE SELECTION */}
             {dbCategory === 'player' && (
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs text-zinc-400">
-                    Отметьте присутствующих персонажей и добавьте их в текущее сражение.
+                <div className="p-3 bg-zinc-900/70 border border-zinc-800 rounded-2xl flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                  <div className="flex-1">
+                    <div className="text-xs font-bold text-amber-300 mb-1 flex items-center space-x-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Быстро сгенерировать нового NPC / Персонажа</span>
+                    </div>
+                    <PolzaQuickInlineGenerator
+                      entityType="npc"
+                      placeholder="Имя, раса, класс (напр.: Эльфийка-следопыт, Стражник 3 уровня...)"
+                      buttonLabel="Создать NPC"
+                      onGenerated={(res) => {
+                        setToastMessage(`✓ NPC "${res.name}" создан и сохранен!`);
+                        setState(initiativeEngine.getState());
+                        setTimeout(() => setToastMessage(null), 3000);
+                      }}
+                    />
                   </div>
+
                   <button
                     onClick={handleAddPresentPlayers}
-                    className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 shadow-lg shadow-amber-500/20"
+                    className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 shadow-lg shadow-amber-500/20 shrink-0 self-end md:self-center"
                   >
                     <Plus className="w-4 h-4" />
-                    <span>Добавить Выбранных Персонажей в Бой</span>
+                    <span>Добавить Отмеченных в Бой</span>
                   </button>
                 </div>
 
@@ -856,7 +872,7 @@ export const InitiativeModal: React.FC<Props> = ({
               <div className="space-y-4">
                 {/* Source Selection Sub-tabs */}
                 <div className="flex flex-wrap items-center justify-between gap-2 bg-zinc-950/80 p-1.5 rounded-2xl border border-zinc-800">
-                  <div className="flex items-center space-x-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       onClick={() => setMonsterSourceTab('dnd5eapi')}
                       className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
@@ -909,6 +925,25 @@ export const InitiativeModal: React.FC<Props> = ({
                   )}
                 </div>
 
+                {/* Inline AI Monster Generator Bar */}
+                <div className="p-3 bg-zinc-900/80 border border-zinc-800 rounded-2xl space-y-1.5">
+                  <div className="text-xs font-bold text-amber-300 flex items-center space-x-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Быстро сгенерировать монстра в Бестиарий (Polza AI)</span>
+                  </div>
+                  <PolzaQuickInlineGenerator
+                    entityType="monster"
+                    placeholder="Например: Огненный элементаль CR 5, Костяной дракон, Гоблин-шаман..."
+                    buttonLabel="Сгенерировать Монстра"
+                    onGenerated={(res) => {
+                      setToastMessage(`✓ Монстр "${res.name}" создан и сохранён!`);
+                      setState(initiativeEngine.getState());
+                      setMonsterSourceTab('local');
+                      setTimeout(() => setToastMessage(null), 3000);
+                    }}
+                  />
+                </div>
+
                 {/* D&D 5E API TAB CONTENT */}
                 {monsterSourceTab === 'dnd5eapi' && (
                   <div className="space-y-3">
@@ -938,9 +973,9 @@ export const InitiativeModal: React.FC<Props> = ({
                               <div className="flex items-start justify-between">
                                 <div className="flex items-center space-x-3 min-w-0">
                                   <div className="w-10 h-10 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-xl shrink-0 overflow-hidden">
-                                    {monster.avatar && monster.avatar.startsWith('http') ? (
+                                    {monster.avatar && monster.avatar.trim().startsWith('http') ? (
                                       <img
-                                        src={monster.avatar}
+                                        src={monster.avatar || undefined}
                                         alt={monster.name}
                                         referrerPolicy="no-referrer"
                                         className="w-full h-full object-cover"

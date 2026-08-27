@@ -12,6 +12,8 @@ import {
 } from '../../utils/cardImportHelper';
 import { worldLoreService } from '../../services/worldLoreService';
 import { playUniversalSfx } from '../../utils/sfxAudio';
+import { PolzaGenerateButton } from '../polza/PolzaGenerateButton';
+import { PolzaEntityContext } from '../../types/polzaTypes';
 import { 
   Shield, 
   Heart, 
@@ -121,6 +123,34 @@ export const NpcCardView: React.FC<Props> = ({
 
         {/* Action Group: Import to Map & Lore */}
         <div className="flex items-center space-x-1.5">
+          <PolzaGenerateButton
+            entity={{
+              type: 'npc',
+              id: npc.fullName,
+              name: npc.fullName,
+              subtitle: `${npc.gender} ${npc.race} ${npc.classType}`,
+              race: npc.race,
+              classType: npc.classType,
+              personality: `${npc.appearance || ''}. ${npc.motivation || ''}. ${npc.quirk || ''}`,
+              description: rawText,
+            }}
+            onApplyImage={(imgUrl) => {
+              (npc as any).avatarUrl = imgUrl;
+              (npc as any).tokenImg = imgUrl;
+              (npc as any).img = imgUrl;
+              if (onShowToast) onShowToast(`Арт Polza AI применён к ${npc.fullName}`);
+            }}
+            onPlaceOnTable={
+              onImportMapItem
+                ? (imgUrl) => {
+                    const token = createNpcTokenItem({ ...npc, avatarUrl: imgUrl } as any);
+                    onImportMapItem(token);
+                    if (onShowToast) onShowToast(`Токен с артом Polza AI добавлен на стол`);
+                  }
+                : undefined
+            }
+          />
+
           <button
             onClick={handlePlaceToken}
             className="px-2.5 py-1.5 bg-rose-950/80 hover:bg-rose-900 border border-rose-600/60 text-rose-200 text-xs font-bold rounded-lg shadow-sm transition-all flex items-center space-x-1.5 cursor-pointer active:scale-95"

@@ -544,6 +544,14 @@ class AudioEngine {
     }
   }
 
+  public playSfxByName(name: string, category: string = 'general', presetHint?: string): void {
+    if (presetHint) {
+      this.playSoundEffect(presetHint);
+    } else {
+      this.playSoundEffect(name);
+    }
+  }
+
   /**
    * Cleans and normalizes raw disk paths from asset protocol / URLs
    */
@@ -645,6 +653,8 @@ class AudioEngine {
     return rawUrl;
   }
 
+  private activeSfxElements: Set<HTMLAudioElement> = new Set();
+
   private async playAudioUrlWithFallback(
     rawUrl: string,
     soundName: string,
@@ -654,12 +664,35 @@ class AudioEngine {
     const playableUrl = await this.resolvePlayableAudioUrl(rawUrl);
 
     try {
+      // Limit active SFX elements pool to 8 to prevent audio channel exhaustion
+      if (this.activeSfxElements.size >= 8) {
+        const oldest = this.activeSfxElements.values().next().value;
+        if (oldest) {
+          oldest.pause();
+          oldest.src = '';
+          this.activeSfxElements.delete(oldest);
+        }
+      }
+
       const audio = new Audio(playableUrl);
       audio.volume = this.sfxVolume;
+      this.activeSfxElements.add(audio);
+
+      const cleanup = () => {
+        audio.onended = null;
+        audio.onerror = null;
+        audio.src = '';
+        this.activeSfxElements.delete(audio);
+      };
+
+      audio.onended = cleanup;
+      audio.onerror = cleanup;
+
       const playPromise = audio.play();
 
       if (playPromise !== undefined) {
         playPromise.catch(async (err) => {
+          cleanup();
           console.debug(`Standard SFX audio play failed (${rawUrl}), trying binary Blob fallback...`, err);
           
           // If direct playback threw NotSupportedError / ERR_CONNECTION_REFUSED in Tauri, load via Rust Binary Blob
@@ -669,6 +702,8 @@ class AudioEngine {
               try {
                 const fallbackAudio = new Audio(blobUrl);
                 fallbackAudio.volume = this.sfxVolume;
+                fallbackAudio.onended = () => { fallbackAudio.src = ''; };
+                fallbackAudio.onerror = () => { fallbackAudio.src = ''; };
                 await fallbackAudio.play();
                 return;
               } catch (blobErr) {

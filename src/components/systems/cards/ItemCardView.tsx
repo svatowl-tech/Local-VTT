@@ -3,6 +3,8 @@ import { Package, Coins, Weight, Shield, Sparkles, Zap, Crosshair, Pin, Eye } fr
 import { SystemReferenceSearchItem } from '../../../services/rustSystemSearchService';
 import { playUniversalSfx } from '../../../utils/sfxAudio';
 import { resolveFoundryImageUrl } from '../../../utils/foundryImageResolver';
+import { PolzaGenerateButton } from '../../polza/PolzaGenerateButton';
+import { PolzaEntityContext } from '../../../types/polzaTypes';
 
 interface Props {
   item: SystemReferenceSearchItem;
@@ -12,6 +14,7 @@ interface Props {
 
 export const ItemCardView: React.FC<Props> = ({ item, onRollDice, onPlaceOnCanvas }) => {
   const [isImgModalOpen, setIsImgModalOpen] = useState(false);
+  const [customAvatarUrl, setCustomAvatarUrl] = useState<string | null>(null);
 
   const data = item.data || {};
   const itemType = data.type || data.itemType || item.category || 'Предмет';
@@ -23,8 +26,21 @@ export const ItemCardView: React.FC<Props> = ({ item, onRollDice, onPlaceOnCanva
   const properties = data.properties || data.traits || [];
 
   const rawImgPath = item.img || data.img || item.tokenImg || data.prototypeToken?.texture?.src;
-  const avatarUrl = resolveFoundryImageUrl(rawImgPath, item.systemId);
+  const initialAvatarUrl = resolveFoundryImageUrl(rawImgPath, item.systemId);
+  const avatarUrl = customAvatarUrl || initialAvatarUrl;
   const fullArtUrl = avatarUrl;
+
+  const polzaEntityContext: PolzaEntityContext = {
+    type: 'item',
+    id: item.id,
+    name: item.name,
+    subtitle: item.originalName,
+    category: `${itemType} (${rarity})`,
+    rarity: String(rarity),
+    description: description,
+    system: item.systemName || item.systemId || 'D&D 5e',
+    currentImageUrl: avatarUrl,
+  };
 
   const handleRollItem = () => {
     const match = description.match(/(\d+d\d+(\s*[-+]\s*\d+)?)/i);
@@ -38,7 +54,7 @@ export const ItemCardView: React.FC<Props> = ({ item, onRollDice, onPlaceOnCanva
   return (
     <div id={`item-card-${item.id}`} className="space-y-4 text-xs select-text">
       {/* Lightbox Art Modal */}
-      {isImgModalOpen && fullArtUrl && (
+      {isImgModalOpen && Boolean(fullArtUrl && fullArtUrl.trim()) && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 cursor-zoom-out"
           onClick={() => {
@@ -48,7 +64,7 @@ export const ItemCardView: React.FC<Props> = ({ item, onRollDice, onPlaceOnCanva
         >
           <div className="relative max-w-lg max-h-[80vh] bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl p-2 flex flex-col items-center">
             <img 
-              src={fullArtUrl} 
+              src={fullArtUrl || undefined} 
               alt={item.name} 
               referrerPolicy="no-referrer"
               className="max-w-full max-h-[70vh] object-contain rounded-xl"
@@ -63,7 +79,7 @@ export const ItemCardView: React.FC<Props> = ({ item, onRollDice, onPlaceOnCanva
       {/* Header */}
       <div className="flex items-start justify-between pb-2 border-b border-zinc-800 gap-3">
         <div className="flex items-center space-x-3 min-w-0">
-          {avatarUrl ? (
+          {avatarUrl && avatarUrl.trim() ? (
             <div 
               onClick={() => {
                 playUniversalSfx('click');
@@ -73,7 +89,7 @@ export const ItemCardView: React.FC<Props> = ({ item, onRollDice, onPlaceOnCanva
               title="Нажмите для просмотра иллюстрации в полный размер"
             >
               <img
-                src={avatarUrl}
+                src={avatarUrl || undefined}
                 alt={item.name}
                 referrerPolicy="no-referrer"
                 className="w-full h-full object-cover object-center transform transition-transform duration-300 group-hover:scale-110"
@@ -104,6 +120,26 @@ export const ItemCardView: React.FC<Props> = ({ item, onRollDice, onPlaceOnCanva
         </div>
 
         <div className="flex items-center space-x-2 shrink-0">
+          <PolzaGenerateButton
+            entity={polzaEntityContext}
+            onApplyImage={(imgUrl) => {
+              setCustomAvatarUrl(imgUrl);
+              playUniversalSfx('success');
+            }}
+            onPlaceOnTable={
+              onPlaceOnCanvas
+                ? (imgUrl) => {
+                    playUniversalSfx('success');
+                    onPlaceOnCanvas({
+                      ...item,
+                      img: imgUrl,
+                      tokenImg: imgUrl,
+                    });
+                  }
+                : undefined
+            }
+          />
+
           {onPlaceOnCanvas && (
             <button
               onClick={() => {

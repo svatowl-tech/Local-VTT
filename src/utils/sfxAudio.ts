@@ -21,7 +21,7 @@ function getAudioContext(): AudioContext | null {
 }
 
 export function playUniversalSfx(
-  type: 'click' | 'dice_roll' | 'success' | 'spell' | 'sword'
+  type: 'click' | 'item_click' | 'dice_roll' | 'success' | 'spell' | 'sword' | string
 ): void {
   const ctx = getAudioContext();
   if (!ctx) return;
@@ -29,7 +29,7 @@ export function playUniversalSfx(
   try {
     const now = ctx.currentTime;
 
-    if (type === 'click') {
+    if (type === 'click' || type === 'item_click') {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'sine';

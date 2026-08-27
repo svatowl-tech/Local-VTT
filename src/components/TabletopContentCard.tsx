@@ -362,6 +362,36 @@ export const TabletopContentCard: React.FC<Props> = memo(({
         {/* === MONSTER CARD VIEW === */}
         {(category === 'monsters' || category === 'bestiary' || category === 'npcs') && (
           <div className="space-y-2.5">
+            {/* Monster Art Banner (if available from API, Polza, or Foundry) */}
+            {(() => {
+              const artUrl = item.tokenImg || item.img || data.img || data.image || mapItem.thumbnailUrl;
+              if (!artUrl || !artUrl.trim()) return null;
+              return (
+                <div className="w-full h-36 rounded-xl overflow-hidden bg-zinc-950 border border-zinc-800/80 relative group shrink-0">
+                  <img
+                    src={artUrl}
+                    alt={item.name}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover object-center transform transition-transform duration-500 group-hover:scale-105"
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = 'none';
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/20 to-transparent" />
+                  <div className="absolute bottom-2 left-2.5 right-2.5 flex items-end justify-between">
+                    <span className="font-bold text-xs text-amber-300 drop-shadow-md truncate max-w-[70%]">
+                      {item.name}
+                    </span>
+                    {stats.cr && (
+                      <span className="text-[10px] font-mono font-bold bg-rose-950/90 text-rose-300 px-2 py-0.5 rounded border border-rose-700/60 shadow-xs">
+                        CR {stats.cr}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Quick Stat Header: HP, AC, Speed, CR */}
             <div className="grid grid-cols-4 gap-1.5 text-center">
               <div className="bg-zinc-900/80 p-1.5 rounded-xl border border-zinc-800 flex flex-col items-center">

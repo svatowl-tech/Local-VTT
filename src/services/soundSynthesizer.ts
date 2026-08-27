@@ -5,6 +5,7 @@
 
 class SoundSynthesizer {
   private ctx: AudioContext | null = null;
+  private sharedNoiseBuffer: AudioBuffer | null = null;
 
   private getContext(): AudioContext | null {
     if (typeof window === 'undefined') return null;
@@ -16,6 +17,19 @@ class SoundSynthesizer {
     }
     if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume().catch(() => {});
+    }
+    if (this.ctx && !this.sharedNoiseBuffer) {
+      try {
+        const sampleRate = this.ctx.sampleRate || 44100;
+        const bufferSize = sampleRate * 1; // 1 second static noise
+        this.sharedNoiseBuffer = this.ctx.createBuffer(1, bufferSize, sampleRate);
+        const output = this.sharedNoiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = Math.random() * 2 - 1;
+        }
+      } catch (e) {
+        console.warn('Failed to pre-allocate static noise buffer:', e);
+      }
     }
     return this.ctx;
   }
@@ -308,12 +322,14 @@ class SoundSynthesizer {
     filterFreq: number,
     gainLevel: number
   ): void {
-    const bufferSize = Math.floor(ctx.sampleRate * duration);
-    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-    const output = noiseBuffer.getChannelData(0);
-
-    for (let i = 0; i < bufferSize; i++) {
-      output[i] = Math.random() * 2 - 1;
+    let noiseBuffer = this.sharedNoiseBuffer;
+    if (!noiseBuffer) {
+      const bufferSize = Math.floor(ctx.sampleRate * Math.min(1.0, duration));
+      noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
     }
 
     const whiteNoise = ctx.createBufferSource();

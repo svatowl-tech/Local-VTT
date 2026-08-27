@@ -26,15 +26,11 @@ const CLASS_THEMES: Record<string, { bg: string; border: string; accent: string;
 /**
  * Generates an ultra-crisp circular combat token SVG with nameplate, HP and AC badges
  */
-export function generateNpcTokenSvg(npc: NpcRawData): string {
+export function generateNpcTokenSvg(npc: NpcRawData & { avatarUrl?: string; tokenImg?: string; img?: string; avatar?: string }): string {
   const theme = CLASS_THEMES[npc.classType] || { bg: '#27272a', border: '#e4e4e7', accent: '#fafafa', emoji: '👤' };
-  const initials = npc.fullName
-    .split(' ')
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join('');
-
   const displayName = npc.fullName.length > 14 ? npc.fullName.substring(0, 12) + '…' : npc.fullName;
+  const rawArt = npc.avatarUrl || npc.tokenImg || npc.img || npc.avatar;
+  const isImgUrl = rawArt && (rawArt.startsWith('http://') || rawArt.startsWith('https://') || rawArt.startsWith('data:'));
 
   const svg = `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
@@ -50,6 +46,9 @@ export function generateNpcTokenSvg(npc: NpcRawData): string {
     <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
       <feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000000" flood-opacity="0.7"/>
     </filter>
+    <clipPath id="npcClip">
+      <circle cx="100" cy="85" r="42"/>
+    </clipPath>
   </defs>
 
   <!-- Shadow & Glow -->
@@ -59,9 +58,18 @@ export function generateNpcTokenSvg(npc: NpcRawData): string {
   <circle cx="100" cy="100" r="88" fill="url(#tokenBg)" stroke="${theme.border}" stroke-width="6" filter="url(#dropShadow)"/>
   <circle cx="100" cy="100" r="80" fill="none" stroke="${theme.accent}" stroke-width="1.5" stroke-dasharray="8,4" opacity="0.6"/>
 
-  <!-- Class Silhouette / Emoji Icon -->
+  <!-- Class Silhouette / Image / Emoji Icon -->
+  ${
+    isImgUrl
+      ? `
+  <circle cx="100" cy="85" r="44" fill="#18181b" stroke="${theme.border}" stroke-width="2"/>
+  <image href="${rawArt}" x="56" y="41" width="88" height="88" preserveAspectRatio="xMidYMid slice" clip-path="url(#npcClip)"/>
+  `
+      : `
   <circle cx="100" cy="85" r="42" fill="#18181b" stroke="${theme.border}" stroke-width="2" opacity="0.8"/>
   <text x="100" y="98" font-size="44" text-anchor="middle" dominant-baseline="central">${theme.emoji}</text>
+  `
+  }
 
   <!-- Level & Initials Badge -->
   <text x="100" y="44" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="11" fill="${theme.accent}" text-anchor="middle" letter-spacing="1">
@@ -213,11 +221,22 @@ export function generateMerchantTokenSvg(shopType: string, merchantName: string)
 }
 
 /**
- * Generates an ultra-crisp circular monster token SVG with CR & HP nameplate
+ * Generates an ultra-crisp circular monster token SVG with CR & HP nameplate and optional embedded art
  */
-export function generateMonsterTokenSvg(monster: { name: string; cr: string; hp: number; ac: number; avatar?: string }): string {
+export function generateMonsterTokenSvg(monster: {
+  name: string;
+  cr: string;
+  hp: number;
+  ac: number;
+  avatar?: string;
+  avatarUrl?: string;
+  tokenImg?: string;
+  img?: string;
+}): string {
   const shortName = monster.name.length > 15 ? monster.name.substring(0, 13) + '…' : monster.name;
-  const emoji = monster.avatar && !monster.avatar.startsWith('http') ? monster.avatar : '👾';
+  const rawArt = monster.avatarUrl || monster.tokenImg || monster.img || monster.avatar;
+  const isImgUrl = rawArt && (rawArt.startsWith('http://') || rawArt.startsWith('https://') || rawArt.startsWith('data:'));
+  const emoji = rawArt && !isImgUrl ? rawArt : '👾';
 
   const svg = `
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
@@ -226,14 +245,27 @@ export function generateMonsterTokenSvg(monster: { name: string; cr: string; hp:
       <stop offset="0%" stop-color="#f43f5e" stop-opacity="0.4"/>
       <stop offset="100%" stop-color="transparent" stop-opacity="0"/>
     </radialGradient>
+    <clipPath id="monsterAvatarClip">
+      <circle cx="100" cy="85" r="46"/>
+    </clipPath>
   </defs>
 
   <circle cx="100" cy="100" r="92" fill="url(#monsterGlow)"/>
   <circle cx="100" cy="100" r="88" fill="#18181b" stroke="#f43f5e" stroke-width="6"/>
-  <circle cx="100" cy="100" r="80" fill="none" stroke="#fecdd3" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.7"/>
 
-  <!-- Monster Avatar -->
+  <!-- Monster Avatar (Image or Emoji) -->
+  ${
+    isImgUrl
+      ? `
+  <circle cx="100" cy="85" r="48" fill="#09090b" stroke="#f43f5e" stroke-width="2"/>
+  <image href="${rawArt}" x="52" y="37" width="96" height="96" preserveAspectRatio="xMidYMid slice" clip-path="url(#monsterAvatarClip)"/>
+  `
+      : `
   <text x="100" y="90" font-size="56" text-anchor="middle" dominant-baseline="central">${emoji}</text>
+  `
+  }
+
+  <circle cx="100" cy="100" r="80" fill="none" stroke="#fecdd3" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.7"/>
 
   <!-- CR Badge Top -->
   <rect x="55" y="22" width="90" height="20" rx="6" fill="#881337" stroke="#f43f5e" stroke-width="1.5"/>

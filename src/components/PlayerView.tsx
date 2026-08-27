@@ -60,6 +60,24 @@ export const PlayerView: React.FC<Props> = memo(({ session }) => {
     const el = containerRef.current;
     if (!el) return;
 
+    const measure = () => {
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          setContainerSize({
+            width: Math.round(rect.width),
+            height: Math.round(rect.height),
+          });
+        }
+      }
+    };
+
+    if (typeof ResizeObserver === 'undefined') {
+      measure();
+      window.addEventListener('resize', measure);
+      return () => window.removeEventListener('resize', measure);
+    }
+
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;

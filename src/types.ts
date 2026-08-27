@@ -23,6 +23,7 @@ export interface MapItem {
   layer?: ObjectLayerType;
   locked?: boolean;
   hiddenFromPlayers?: boolean;
+  description?: string;
   tags?: string[];
   // Sub-map portal & Map link capabilities (for global maps and nested scenes)
   isSubmapPortal?: boolean;

@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import { COLOR_THEMES } from '../utils/layerHierarchy';
 import { LAYER_ICON_MAP } from './CreateCustomLayerModal';
+import { PolzaJsonGenerateButton } from './polza/PolzaJsonGenerateButton';
+import { PolzaGenerateButton } from './polza/PolzaGenerateButton';
 
 export interface ContextMenuPosition {
   x: number;
@@ -254,6 +256,44 @@ export const ObjectContextMenu: React.FC<Props> = ({
             <ChevronsDown className="w-3.5 h-3.5 text-amber-400 mb-0.5" />
             <span>Низ</span>
           </button>
+        </div>
+      </div>
+
+      {/* Polza AI Integration Section */}
+      <div className="p-2 space-y-1 bg-amber-500/5">
+        <span className="px-2 py-0.5 text-[10px] font-bold text-amber-400 uppercase tracking-wider block flex items-center justify-between">
+          <span>Polza AI Генератор:</span>
+          <Sparkles className="w-3 h-3 text-amber-400" />
+        </span>
+        <div className="space-y-1">
+          <PolzaJsonGenerateButton
+            entityType="location"
+            initialOptions={{
+              existingMapName: mapItem.name,
+              userPrompt: `Создать полный лор и описание для локации карты "${mapItem.name}"`,
+            }}
+            onGenerated={(jsonData) => {
+              if (jsonData && (jsonData.description || jsonData.contentMarkdown)) {
+                onUpdateMapItem(mapItem.id, {
+                  description: jsonData.description || jsonData.contentMarkdown,
+                });
+              }
+            }}
+            variant="full"
+            label="Заполнить лор карты через Polza AI"
+          />
+          <PolzaGenerateButton
+            entity={{
+              type: 'location',
+              name: mapItem.name,
+              description: mapItem.description || `Fantasy battlemap ${mapItem.name}`,
+            }}
+            onApplyImage={(imgUrl) => {
+              onUpdateMapItem(mapItem.id, { url: imgUrl });
+            }}
+            variant="full"
+            label="Сгенерировать Арт карты в Polza AI"
+          />
         </div>
       </div>
 

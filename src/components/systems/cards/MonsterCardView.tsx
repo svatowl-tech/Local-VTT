@@ -3,12 +3,14 @@ import { Shield, Heart, Zap, Footprints, Skull, Award, Swords, Sparkles, Volume2
 import { SystemReferenceSearchItem } from '../../../services/rustSystemSearchService';
 import { playUniversalSfx } from '../../../utils/sfxAudio';
 import { resolveFoundryImageUrl } from '../../../utils/foundryImageResolver';
+import { PolzaGenerateButton } from '../../polza/PolzaGenerateButton';
+import { PolzaEntityContext } from '../../../types/polzaTypes';
 
 interface Props {
   item: SystemReferenceSearchItem;
   onSendToInitiative?: (item: SystemReferenceSearchItem) => void;
   onRollDice?: (expression: string, label: string) => void;
-  onPlaceOnCanvas?: (item: SystemReferenceSearchItem) => void;
+  onPlaceOnCanvas?: (item: SystemReferenceSearchItem, importType?: 'card' | 'token') => void;
 }
 
 export const MonsterCardView: React.FC<Props> = ({
@@ -18,6 +20,7 @@ export const MonsterCardView: React.FC<Props> = ({
   onPlaceOnCanvas,
 }) => {
   const [isImgModalOpen, setIsImgModalOpen] = useState(false);
+  const [customAvatarUrl, setCustomAvatarUrl] = useState<string | null>(null);
 
   const data = item.data || {};
   const stats = item.stats || data.stats || {};
@@ -27,9 +30,23 @@ export const MonsterCardView: React.FC<Props> = ({
   const reactions = data.reactions || [];
 
   const rawImgPath = item.tokenImg || item.img || data.img || data.prototypeToken?.texture?.src || data.prototypeToken?.img;
-  const avatarUrl = resolveFoundryImageUrl(rawImgPath, item.systemId);
+  const initialAvatarUrl = resolveFoundryImageUrl(rawImgPath, item.systemId);
+  const avatarUrl = customAvatarUrl || initialAvatarUrl;
   const fullArtPath = item.img || data.img || rawImgPath;
-  const fullArtUrl = resolveFoundryImageUrl(fullArtPath, item.systemId);
+  const fullArtUrl = customAvatarUrl || resolveFoundryImageUrl(fullArtPath, item.systemId);
+
+  const polzaEntityContext: PolzaEntityContext = {
+    type: 'monster',
+    id: item.id,
+    name: item.name,
+    subtitle: item.originalName,
+    description: item.summary || (data as any)?.description || (actions.length > 0 ? actions.map((a: any) => `${a.name}: ${a.desc || a.text}`).join('. ') : ''),
+    category: [data.size, data.type, data.alignment].filter(Boolean).join(' '),
+    cr: String(data.cr || stats.cr || ''),
+    environment: data.environment || '',
+    system: item.systemName || item.systemId || 'D&D 5e',
+    currentImageUrl: avatarUrl,
+  };
 
   const handleRollAction = (actionName: string, text: string) => {
     // Try to find dice pattern in action text like 1d6 + 2 or 2d8 + 3
@@ -51,7 +68,7 @@ export const MonsterCardView: React.FC<Props> = ({
   return (
     <div id={`monster-card-${item.id}`} className="space-y-4 text-xs select-text">
       {/* Lightbox Art Modal */}
-      {isImgModalOpen && fullArtUrl && (
+      {isImgModalOpen && Boolean(fullArtUrl && fullArtUrl.trim()) && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 cursor-zoom-out"
           onClick={() => {
@@ -61,7 +78,7 @@ export const MonsterCardView: React.FC<Props> = ({
         >
           <div className="relative max-w-lg max-h-[80vh] bg-zinc-950 border border-zinc-800 rounded-2xl overflow-hidden shadow-2xl p-2 flex flex-col items-center">
             <img 
-              src={fullArtUrl} 
+              src={fullArtUrl || undefined} 
               alt={item.name} 
               referrerPolicy="no-referrer"
               className="max-w-full max-h-[70vh] object-contain rounded-xl"
@@ -76,7 +93,7 @@ export const MonsterCardView: React.FC<Props> = ({
       {/* Top Banner with Type and System */}
       <div className="flex items-start justify-between pb-2 border-b border-zinc-800 gap-3">
         <div className="flex items-center space-x-3 min-w-0">
-          {avatarUrl ? (
+          {avatarUrl && avatarUrl.trim() ? (
             <div 
               onClick={() => {
                 if (fullArtUrl) {
@@ -88,7 +105,7 @@ export const MonsterCardView: React.FC<Props> = ({
               title="Нажмите для просмотра иллюстрации в полный размер"
             >
               <img
-                src={avatarUrl}
+                src={avatarUrl || undefined}
                 alt={item.name}
                 referrerPolicy="no-referrer"
                 className="w-full h-full object-cover object-center transform transition-transform duration-300 group-hover:scale-110"
@@ -117,18 +134,66 @@ export const MonsterCardView: React.FC<Props> = ({
         </div>
 
         <div className="flex items-center space-x-2 shrink-0">
+          <PolzaGenerateButton
+            entity={polzaEntityContext}
+            onApplyImage={(imgUrl) => {
+              setCustomAvatarUrl(imgUrl);
+              playUniversalSfx('success');
+            }}
+            onPlaceOnTable={
+              onPlaceOnCanvas
+                ? (imgUrl) => {
+                    playUniversalSfx('success');
+                    onPlaceOnCanvas({
+                      ...item,
+                      img: imgUrl,
+                      tokenImg: imgUrl,
+                    });
+                  }
+                : undefined
+            }
+          />
+
           {onPlaceOnCanvas && (
-            <button
-              onClick={() => {
-                playUniversalSfx('success');
-                onPlaceOnCanvas(item);
-              }}
-              className="px-2.5 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 font-bold rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer shadow-xs"
-              title="Поместить карточку монстра прямо на рабочий стол карты"
-            >
-              <Pin className="w-3.5 h-3.5" />
-              <span className="text-[11px]">На стол</span>
-            </button>
+            <div className="flex items-center space-x-1.5">
+              <button
+                onClick={() => {
+                  playUniversalSfx('success');
+                  onPlaceOnCanvas(
+                    {
+                      ...item,
+                      img: avatarUrl || item.img,
+                      tokenImg: avatarUrl || item.tokenImg,
+                    },
+                    'token'
+                  );
+                }}
+                className="px-2.5 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 font-bold rounded-lg flex items-center space-x-1 transition-all cursor-pointer shadow-xs"
+                title="Поместить боевой токен с артом монстра на карту"
+              >
+                <Swords className="w-3.5 h-3.5 text-rose-400" />
+                <span className="text-[11px]">Токен</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  playUniversalSfx('success');
+                  onPlaceOnCanvas(
+                    {
+                      ...item,
+                      img: avatarUrl || item.img,
+                      tokenImg: avatarUrl || item.tokenImg,
+                    },
+                    'card'
+                  );
+                }}
+                className="px-2.5 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 font-bold rounded-lg flex items-center space-x-1 transition-all cursor-pointer shadow-xs"
+                title="Поместить интерактивную карточку монстра с артом на рабочий стол"
+              >
+                <Pin className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-[11px]">Карточку</span>
+              </button>
+            </div>
           )}
 
           {onSendToInitiative && (

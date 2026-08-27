@@ -40,7 +40,7 @@ import { playUniversalSfx } from '../../utils/sfxAudio';
 interface Props {
   onOpenUniversalParser?: () => void;
   onOpenInitiative?: () => void;
-  onPlaceCardOnCanvas?: (item: SystemReferenceSearchItem) => void;
+  onPlaceCardOnCanvas?: (item: SystemReferenceSearchItem, importType?: 'card' | 'token') => void;
 }
 
 const CATEGORY_TABS = [
@@ -378,7 +378,7 @@ export const MasterCompendiumPanel: React.FC<Props> = ({
         </div>
 
         {/* Category Pills */}
-        <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 no-scrollbar">
+        <div className="flex flex-wrap items-center gap-1.5 pb-0.5">
           {CATEGORY_TABS.map((cat) => {
             const Icon = cat.icon;
             const count =

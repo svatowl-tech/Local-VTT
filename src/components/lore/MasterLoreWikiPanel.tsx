@@ -29,6 +29,10 @@ import {
   Eye,
   RefreshCw,
 } from 'lucide-react';
+import { PolzaGenerateButton } from '../polza/PolzaGenerateButton';
+import { PolzaJsonGenerateButton } from '../polza/PolzaJsonGenerateButton';
+import { PolzaQuickInlineGenerator } from '../polza/PolzaQuickInlineGenerator';
+import { PolzaEntityContext } from '../../types/polzaTypes';
 
 interface Props {
   onPlaceLoreOnCanvas?: (item: WorldLoreItem) => void;
@@ -258,6 +262,19 @@ export const MasterLoreWikiPanel: React.FC<Props> = ({
             ))}
           </select>
 
+          {/* Polza AI JSON Generator */}
+          <PolzaJsonGenerateButton
+            entityType={selectedCategory === 'npc_figure' ? 'npc' : selectedCategory === 'settlement' ? 'location' : 'lore'}
+            initialOptions={{
+              worldId: selectedWorldId,
+            }}
+            onGenerated={async () => {
+              await loadItems();
+              showToast('Запись от Polza AI успешно добавлена в лор!');
+            }}
+            label="Сгенерировать в Polza AI"
+          />
+
           {/* Create Article / NPC Button */}
           <button
             onClick={handleOpenCreateArticle}
@@ -272,7 +289,7 @@ export const MasterLoreWikiPanel: React.FC<Props> = ({
 
       {/* Main Filter & Category Bar */}
       <div className="p-2 bg-zinc-900/40 border-b border-zinc-800/80 flex flex-wrap items-center justify-between gap-2 shrink-0">
-        <div className="flex items-center space-x-1 overflow-x-auto py-0.5 custom-scrollbar max-w-full">
+        <div className="flex flex-wrap items-center gap-1 py-0.5 max-w-full">
           {LORE_CATEGORIES.map((cat) => {
             const IconC = cat.icon;
             const isActive = selectedCategory === cat.id;
@@ -305,6 +322,49 @@ export const MasterLoreWikiPanel: React.FC<Props> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-8 pr-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-amber-500/50"
+          />
+        </div>
+      </div>
+
+      {/* Category-Specific Polza AI Fast Inline Generator */}
+      <div className="px-3 py-2 bg-gradient-to-r from-amber-500/10 via-zinc-900 to-amber-500/10 border-b border-amber-500/20 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 shrink-0">
+        <div className="flex items-center space-x-1.5 text-xs font-bold text-amber-300 shrink-0">
+          <Sparkles className="w-4 h-4 text-amber-400 animate-pulse" />
+          <span>Быстрая генерация в Лор Вики:</span>
+        </div>
+
+        <div className="flex-1 max-w-xl">
+          <PolzaQuickInlineGenerator
+            entityType={
+              selectedCategory === 'settlement'
+                ? 'location'
+                : selectedCategory === 'npc_figure'
+                ? 'npc'
+                : 'lore'
+            }
+            initialOptions={{
+              worldId: selectedWorldId,
+              loreCategory: selectedCategory === 'all' ? 'world_overview' : selectedCategory,
+            }}
+            placeholder={
+              selectedCategory === 'settlement'
+                ? 'Название города, столицы или региона...'
+                : selectedCategory === 'npc_figure'
+                ? 'Имя НИП, раса, должность или роль...'
+                : selectedCategory === 'faction_cult'
+                ? 'Название фракции, клана или культа...'
+                : selectedCategory === 'demographics_race'
+                ? 'Название и особенность древней расы...'
+                : 'Концепт божества, города, НИП или предания...'
+            }
+            buttonLabel="Сгенерировать в Вики"
+            onGenerated={async (result) => {
+              await loadItems();
+              if (result.loreItem) {
+                setSelectedItem(result.loreItem);
+              }
+              showToast(`✓ "${result.name}" добавлена в вашу Вики!`);
+            }}
           />
         </div>
       </div>
@@ -408,6 +468,33 @@ export const MasterLoreWikiPanel: React.FC<Props> = ({
                 </div>
 
                 <div className="flex items-center space-x-2 shrink-0">
+                  <PolzaGenerateButton
+                    entity={{
+                      type: selectedItem.category === 'settlement' ? 'location' : selectedItem.category === 'npc_figure' ? 'npc' : 'lore',
+                      id: selectedItem.id,
+                      name: selectedItem.name,
+                      subtitle: selectedItem.originalName,
+                      category: selectedItem.category,
+                      description: selectedItem.content || selectedItem.summary,
+                      currentImageUrl: selectedItem.imageUrl,
+                    }}
+                    onApplyImage={async (imgUrl) => {
+                      const updated: WorldLoreItem = { ...selectedItem, imageUrl: imgUrl };
+                      setSelectedItem(updated);
+                      await worldLoreService.saveItem(updated);
+                      await loadItems();
+                      showToast(`Арт Polza AI сохранён в статью «${selectedItem.name}»`);
+                    }}
+                    onPlaceOnTable={
+                      onPlaceImageOnCanvas
+                        ? (imgUrl) => {
+                            onPlaceImageOnCanvas(imgUrl, selectedItem.name);
+                            showToast(`Арт «${selectedItem.name}» выведен на стол`);
+                          }
+                        : undefined
+                    }
+                  />
+
                   <button
                     onClick={() => {
                       setEditingItem({ ...selectedItem });
@@ -460,10 +547,10 @@ export const MasterLoreWikiPanel: React.FC<Props> = ({
               </div>
 
               {/* Article Image Banner if present */}
-              {selectedItem.imageUrl && (
+              {Boolean(selectedItem.imageUrl && selectedItem.imageUrl.trim()) && (
                 <div className="relative rounded-xl overflow-hidden border border-zinc-800 bg-zinc-950 max-h-64 flex items-center justify-center group/img">
                   <img
-                    src={selectedItem.imageUrl}
+                    src={selectedItem.imageUrl || undefined}
                     alt={selectedItem.name}
                     className="w-full h-full object-cover max-h-64"
                     referrerPolicy="no-referrer"
@@ -629,9 +716,9 @@ export const MasterLoreWikiPanel: React.FC<Props> = ({
                     onChange={(e) => setEditingItem((prev) => ({ ...prev, imageUrl: e.target.value }))}
                     className="flex-1 px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-xs text-zinc-100 focus:outline-none focus:border-amber-500"
                   />
-                  {editingItem.imageUrl && (
+                  {Boolean(editingItem.imageUrl && editingItem.imageUrl.trim()) && (
                     <img
-                      src={editingItem.imageUrl}
+                      src={editingItem.imageUrl || undefined}
                       alt="Preview"
                       className="w-10 h-10 object-cover rounded-lg border border-zinc-700 shrink-0"
                     />

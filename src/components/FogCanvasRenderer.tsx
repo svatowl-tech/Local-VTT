@@ -173,20 +173,37 @@ export const FogCanvasRenderer: React.FC<Props> = memo(({
     }
 
     let isSubscribed = true;
+    let accumDelta = 0;
 
     const renderFrame = (timestamp: number) => {
       if (!isSubscribed) return;
 
+      if (document.hidden) {
+        if (isAnimated) {
+          rafIdRef.current = requestAnimationFrame(renderFrame);
+        }
+        return;
+      }
+
       const delta = timestamp - lastTimeRef.current;
       lastTimeRef.current = timestamp;
+      accumDelta += delta;
+
+      // Frame cap: render at ~25 FPS (40ms interval) for maximum performance on older laptops
+      if (isAnimated && accumDelta < 38) {
+        rafIdRef.current = requestAnimationFrame(renderFrame);
+        return;
+      }
+
+      const frameDt = Math.min(accumDelta, 120) * 0.001;
+      accumDelta = 0;
 
       // Update texture scroll coordinates (wind simulation)
       if (isAnimated) {
-        const dt = Math.min(delta, 100) * 0.001;
-        animOffsetRef.current.x1 = (animOffsetRef.current.x1 + dt * 14) % 512;
-        animOffsetRef.current.y1 = (animOffsetRef.current.y1 + dt * 7) % 512;
-        animOffsetRef.current.x2 = (animOffsetRef.current.x2 - dt * 9 + 512) % 512;
-        animOffsetRef.current.y2 = (animOffsetRef.current.y2 + dt * 11) % 512;
+        animOffsetRef.current.x1 = (animOffsetRef.current.x1 + frameDt * 14) % 512;
+        animOffsetRef.current.y1 = (animOffsetRef.current.y1 + frameDt * 7) % 512;
+        animOffsetRef.current.x2 = (animOffsetRef.current.x2 - frameDt * 9 + 512) % 512;
+        animOffsetRef.current.y2 = (animOffsetRef.current.y2 + frameDt * 11) % 512;
       }
 
       ctx.clearRect(0, 0, targetWidth, targetHeight);

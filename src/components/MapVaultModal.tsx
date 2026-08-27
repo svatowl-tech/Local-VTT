@@ -309,7 +309,7 @@ export const MapVaultModal: React.FC<Props> = ({
                 const primaryMap = (item.tabSnapshot.maps || []).find(
                   (m) => m.id === item.tabSnapshot.activeMapId
                 ) || item.tabSnapshot.maps?.[0];
-                const thumb = item.thumbnailUrl || primaryMap?.thumbnailUrl || primaryMap?.url || '';
+                const thumb = (item.thumbnailUrl || primaryMap?.thumbnailUrl || primaryMap?.url || '').trim();
                 const stats = item.stats || mapVaultService.computeStats(item.tabSnapshot);
 
                 return (
@@ -321,7 +321,7 @@ export const MapVaultModal: React.FC<Props> = ({
                     <div className="relative h-44 bg-zinc-950 overflow-hidden border-b border-zinc-800">
                       {thumb ? (
                         <img
-                          src={thumb}
+                          src={thumb || undefined}
                           alt=""
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />

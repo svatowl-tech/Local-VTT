@@ -481,6 +481,13 @@ class WorldLoreService {
     return Array.from(this.memoryLoreItems.values());
   }
 
+  public async getLoreItems(worldId?: string): Promise<WorldLoreItem[]> {
+    if (worldId && worldId !== 'all') {
+      return this.getItemsByWorld(worldId);
+    }
+    return this.getAllLoreItems();
+  }
+
   public async getItemsByWorld(worldId: string, category?: LoreCategory): Promise<WorldLoreItem[]> {
     await this.init();
     const all = Array.from(this.memoryLoreItems.values());

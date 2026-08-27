@@ -252,7 +252,8 @@ class Dnd5eApiService {
       description: ab.desc || ab.description || '',
     }));
 
-    const imgUrl = m.image ? `https://www.dnd5eapi.co${m.image}` : undefined;
+    const rawImg = m.image || m.imageUrl || m.image_url || m.img;
+    const imgUrl = rawImg ? (rawImg.startsWith('http') ? rawImg : `https://www.dnd5eapi.co${rawImg}`) : undefined;
 
     return {
       id: `dnd5eapi-mon-${m.index}`,
@@ -288,6 +289,9 @@ class Dnd5eApiService {
       traits,
       data: {
         ...m,
+        img: imgUrl,
+        image: imgUrl,
+        tokenImg: imgUrl,
         hitPoints: hpVal,
         armorClass: acVal,
         type: `${m.size || ''} ${m.type || ''} ${m.subtype ? `(${m.subtype})` : ''}`,

@@ -2864,8 +2864,8 @@ export const DungeonGeneratorPanel: React.FC<Props> = ({ onClose, onImportDungeo
               <div className="w-full h-48 bg-zinc-900 rounded-xl border border-zinc-800 flex items-center justify-center overflow-hidden relative">
                 {isGenerating ? (
                   <span className="text-zinc-500 text-xs animate-pulse">Генерация...</span>
-                ) : previewUrl ? (
-                  <img src={previewUrl} alt="Preview" className="max-w-full max-h-full object-contain" />
+                ) : previewUrl && previewUrl.trim() ? (
+                  <img src={previewUrl || undefined} alt="Preview" className="max-w-full max-h-full object-contain" />
                 ) : null}
               </div>
               <button 
