@@ -36,6 +36,7 @@ import { TableCardView } from './cards/TableCardView';
 import { RuleLoreCardView } from './cards/RuleLoreCardView';
 import { initiativeEngine } from '../../services/initiativeEngine';
 import { playUniversalSfx } from '../../utils/sfxAudio';
+import { copyToClipboard } from '../../utils/clipboardUtils';
 
 interface Props {
   onOpenUniversalParser?: () => void;
@@ -175,7 +176,7 @@ export const MasterCompendiumPanel: React.FC<Props> = ({
   // Handle copy JSON / text
   const handleCopyCard = (item: SystemReferenceSearchItem) => {
     const textToCopy = JSON.stringify(item.data || item, null, 2);
-    navigator.clipboard.writeText(textToCopy);
+    copyToClipboard(textToCopy);
     showToast('Данные карточки скопированы в буфер обмена!');
     playUniversalSfx('click');
   };

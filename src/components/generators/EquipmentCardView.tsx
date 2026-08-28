@@ -3,6 +3,7 @@ import { EquipmentRawData } from '../../types/generatorTypes';
 import { Shield, Sparkles, Scale, Coins, Wrench, Copy, Check, ShieldAlert, Award } from 'lucide-react';
 import { PolzaGenerateButton } from '../polza/PolzaGenerateButton';
 import { PolzaEntityContext } from '../../types/polzaTypes';
+import { copyToClipboard } from '../../utils/clipboardUtils';
 
 interface EquipmentCardViewProps {
   equipment: EquipmentRawData;
@@ -16,7 +17,7 @@ export const EquipmentCardView: React.FC<EquipmentCardViewProps> = ({ equipment,
   const { item } = equipment;
 
   const handleCopyText = () => {
-    navigator.clipboard.writeText(rawText);
+    copyToClipboard(rawText);
     setCopied(true);
     if (onShowToast) onShowToast('Экипировка скопирована в буфер обмена');
     setTimeout(() => setCopied(false), 2000);

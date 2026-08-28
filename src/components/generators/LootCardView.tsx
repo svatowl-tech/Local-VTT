@@ -8,6 +8,7 @@ import {
 } from '../../utils/cardImportHelper';
 import { worldLoreService } from '../../services/worldLoreService';
 import { playUniversalSfx } from '../../utils/sfxAudio';
+import { copyToClipboard } from '../../utils/clipboardUtils';
 import { 
   Copy, 
   Check, 
@@ -45,7 +46,7 @@ export const LootCardView: React.FC<Props> = ({
   const [cardPlaced, setCardPlaced] = useState(false);
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(rawText);
+    copyToClipboard(rawText);
     setCopied(true);
     playUniversalSfx('click');
     setTimeout(() => setCopied(false), 2000);

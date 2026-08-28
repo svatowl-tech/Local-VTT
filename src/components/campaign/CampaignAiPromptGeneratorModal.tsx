@@ -12,6 +12,7 @@ import {
   Cpu,
 } from 'lucide-react';
 import { playUniversalSfx } from '../../utils/sfxAudio';
+import { copyToClipboard } from '../../utils/clipboardUtils';
 
 interface Props {
   onClose: () => void;
@@ -275,7 +276,7 @@ JSON должен содержать следующие поля:
 
   const handleCopyPrompt = () => {
     if (!generatedPrompt) return;
-    navigator.clipboard.writeText(generatedPrompt);
+    copyToClipboard(generatedPrompt);
     playUniversalSfx('item_click');
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);

@@ -1,6 +1,7 @@
 import React from 'react';
 import { StationaryShopRawData } from '../../types/generatorTypes';
 import { Store, Coins, ShieldCheck, MapPin, Copy, Check, Sparkles, User, Key, Percent } from 'lucide-react';
+import { copyToClipboard } from '../../utils/clipboardUtils';
 
 interface StationaryShopViewProps {
   shop: StationaryShopRawData;
@@ -12,7 +13,7 @@ export const StationaryShopView: React.FC<StationaryShopViewProps> = ({ shop, ra
   const [copied, setCopied] = React.useState(false);
 
   const handleCopyText = () => {
-    navigator.clipboard.writeText(rawText);
+    copyToClipboard(rawText);
     setCopied(true);
     if (onShowToast) onShowToast('Данные лавки скопированы в буфер обмена');
     setTimeout(() => setCopied(false), 2000);

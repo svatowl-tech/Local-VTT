@@ -402,12 +402,38 @@ pub fn write_json_file_rust(
     use std::fs;
     use std::path::PathBuf;
     
-    let mut path = PathBuf::from(&root_path);
+    // Resolve relative path to user's Documents/AetherMap on macOS if not absolute
+    let mut path = if root_path.is_empty() || root_path == "assets" || !Path::new(&root_path).is_absolute() {
+        if let Some(home) = std::env::var_os("HOME") {
+            let mut p = PathBuf::from(home);
+            p.push("Documents");
+            p.push("AetherMap");
+            if !root_path.is_empty() && root_path != "assets" {
+                p.push(&root_path);
+            } else {
+                p.push("assets");
+            }
+            p
+        } else {
+            PathBuf::from(&root_path)
+        }
+    } else {
+        PathBuf::from(&root_path)
+    };
+
     for sub in sub_path {
         path.push(sub);
     }
+
     if !path.exists() {
         if let Err(e) = fs::create_dir_all(&path) {
+            // Fallback to system temp directory if user directory has permission issues
+            let mut fallback_path = std::env::temp_dir().join("aethermap");
+            if let Ok(_) = fs::create_dir_all(&fallback_path) {
+                fallback_path.push(&file_name);
+                let _ = fs::write(&fallback_path, &content);
+                return Ok(fallback_path.to_string_lossy().into_owned());
+            }
             return Err(format!("Failed to create directories: {}", e));
         }
     }

@@ -37,6 +37,7 @@ import {
 import { polzaEntityAdapterService, AdaptedPolzaEntityResult } from '../../services/polzaEntityAdapterService';
 import { polzaService } from '../../services/polzaService';
 import { playUniversalSfx } from '../../utils/sfxAudio';
+import { copyToClipboard } from '../../utils/clipboardUtils';
 
 interface PolzaJsonModalProps {
   isOpen: boolean;
@@ -227,7 +228,7 @@ export const PolzaJsonModal: React.FC<PolzaJsonModalProps> = ({
 
   const handleCopyJson = () => {
     if (result?.jsonData) {
-      navigator.clipboard.writeText(JSON.stringify(result.jsonData, null, 2));
+      copyToClipboard(JSON.stringify(result.jsonData, null, 2));
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }

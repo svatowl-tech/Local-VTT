@@ -11,6 +11,7 @@ import { worldLoreService } from '../../services/worldLoreService';
 import { rustSystemSearchService } from '../../services/rustSystemSearchService';
 import { initiativeEngine } from '../../services/initiativeEngine';
 import { playUniversalSfx } from '../../utils/sfxAudio';
+import { copyToClipboard } from '../../utils/clipboardUtils';
 import { PolzaGenerateButton } from '../polza/PolzaGenerateButton';
 import { PolzaEntityContext } from '../../types/polzaTypes';
 import {
@@ -73,7 +74,7 @@ ${monster.actions.map(a => `${a.name}: ${a.description}`).join('\n')}
 ${monster.legendaryActions?.length ? `--- ЛЕГЕНДАРНЫЕ ДЕЙСТВИЯ ---\n${monster.legendaryActions.map(l => `${l.name}: ${l.description}`).join('\n')}` : ''}
     `.trim();
 
-    navigator.clipboard.writeText(text);
+    copyToClipboard(text);
     setCopied(true);
     playUniversalSfx('click');
     setTimeout(() => setCopied(false), 2000);

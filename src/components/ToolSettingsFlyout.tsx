@@ -139,7 +139,7 @@ export const ToolSettingsFlyout: React.FC<Props> = memo(({
   return (
     <div
       id="tool_settings_flyout_panel"
-      className="w-72 bg-zinc-950/95 backdrop-blur-xl border border-zinc-800/90 rounded-2xl shadow-2xl p-3.5 space-y-3 pointer-events-auto select-none animate-fadeIn text-zinc-200 z-40 max-h-[calc(100vh-140px)] overflow-y-auto scrollbar-none"
+      className="w-64 sm:w-72 bg-zinc-950/95 backdrop-blur-xl border border-zinc-800/90 rounded-2xl shadow-2xl p-2.5 sm:p-3.5 space-y-2 sm:space-y-3 pointer-events-auto select-none animate-fadeIn text-zinc-200 z-40 max-h-[calc(100vh-90px)] overflow-y-auto scrollbar-none text-xs"
     >
       {/* Header with Title & Controls */}
       <div className="flex items-center justify-between pb-2 border-b border-zinc-800/80">

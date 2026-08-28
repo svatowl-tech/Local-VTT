@@ -3,6 +3,7 @@ import { MagicItemRawData } from '../../types/generatorTypes';
 import { Wand2, Sparkles, Flame, Shield, Coins, BookOpen, Key, Copy, Check, Zap, Eye, Skull } from 'lucide-react';
 import { PolzaGenerateButton } from '../polza/PolzaGenerateButton';
 import { PolzaEntityContext } from '../../types/polzaTypes';
+import { copyToClipboard } from '../../utils/clipboardUtils';
 
 interface MagicItemCardViewProps {
   magicData: MagicItemRawData;
@@ -16,7 +17,7 @@ export const MagicItemCardView: React.FC<MagicItemCardViewProps> = ({ magicData,
   const { item } = magicData;
 
   const handleCopyText = () => {
-    navigator.clipboard.writeText(rawText);
+    copyToClipboard(rawText);
     setCopied(true);
     if (onShowToast) onShowToast('Магический предмет скопирован в буфер обмена');
     setTimeout(() => setCopied(false), 2000);

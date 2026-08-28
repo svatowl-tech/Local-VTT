@@ -40,48 +40,87 @@ class CampaignService {
    */
   private async initFromDisk(): Promise<void> {
     if (typeof window === 'undefined') return;
+    
+    let loadedFromServer = false;
     try {
       const res = await fetch('/api/campaigns/load?id=active_campaign');
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.campaign) {
-          this.state = {
-            ...DEFAULT_CAMPAIGN_STATE,
-            ...json.campaign,
-            time: { ...DEFAULT_CAMPAIGN_STATE.time, ...(json.campaign.time || {}) },
-            quests: json.campaign.quests || DEFAULT_CAMPAIGN_STATE.quests,
-            locations: json.campaign.locations || DEFAULT_CAMPAIGN_STATE.locations,
-            npcs: json.campaign.npcs || DEFAULT_CAMPAIGN_STATE.npcs,
-            relationships: json.campaign.relationships || DEFAULT_CAMPAIGN_STATE.relationships,
-            factions: json.campaign.factions || DEFAULT_CAMPAIGN_STATE.factions,
-            sessions: json.campaign.sessions || DEFAULT_CAMPAIGN_STATE.sessions,
-            timeline: json.campaign.timeline || DEFAULT_CAMPAIGN_STATE.timeline,
-            party: json.campaign.party || DEFAULT_CAMPAIGN_STATE.party,
-            treasury: { ...DEFAULT_CAMPAIGN_STATE.treasury, ...(json.campaign.treasury || {}) },
-            safety: { ...DEFAULT_CAMPAIGN_STATE.safety, ...(json.campaign.safety || {}) },
-          };
-          this.isLoaded = true;
-          this.notifyListeners();
-          return;
+          this.applyLoadedState(json.campaign);
+          loadedFromServer = true;
         }
       }
     } catch (err) {
-      console.warn('Could not fetch active campaign from server disk, saving default to disk:', err);
+      // Ignore expected Express API missing errors in Tauri
+    }
+
+    if (!loadedFromServer) {
+      try {
+        const stored = localStorage.getItem('aethermap_active_campaign');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          this.applyLoadedState(parsed);
+          return;
+        }
+      } catch (err) {
+        console.warn('Failed to load campaign from localStorage:', err);
+      }
     }
     
+    if (!loadedFromServer) {
+      this.isLoaded = true;
+      this.saveState();
+    }
+  }
+
+  private applyLoadedState(campaignData: any) {
+    this.state = {
+      ...DEFAULT_CAMPAIGN_STATE,
+      ...campaignData,
+      time: { ...DEFAULT_CAMPAIGN_STATE.time, ...(campaignData.time || {}) },
+      quests: campaignData.quests || DEFAULT_CAMPAIGN_STATE.quests,
+      locations: campaignData.locations || DEFAULT_CAMPAIGN_STATE.locations,
+      npcs: campaignData.npcs || DEFAULT_CAMPAIGN_STATE.npcs,
+      relationships: campaignData.relationships || DEFAULT_CAMPAIGN_STATE.relationships,
+      factions: campaignData.factions || DEFAULT_CAMPAIGN_STATE.factions,
+      sessions: campaignData.sessions || DEFAULT_CAMPAIGN_STATE.sessions,
+      timeline: campaignData.timeline || DEFAULT_CAMPAIGN_STATE.timeline,
+      party: campaignData.party || DEFAULT_CAMPAIGN_STATE.party,
+      treasury: { ...DEFAULT_CAMPAIGN_STATE.treasury, ...(campaignData.treasury || {}) },
+      safety: { ...DEFAULT_CAMPAIGN_STATE.safety, ...(campaignData.safety || {}) },
+    };
     this.isLoaded = true;
-    // Persist starter state to disk
-    this.saveState();
+    this.notifyListeners();
   }
 
   /**
-   * Debounced save directly to server disk under assets/data/Campaigns/
+   * Debounced save directly to server disk under assets/data/Campaigns/ and localStorage
    */
   private saveState(): void {
     this.state.updatedAt = Date.now();
     this.notifyListeners();
 
     if (typeof window === 'undefined') return;
+
+    try {
+      localStorage.setItem('aethermap_active_campaign', JSON.stringify(this.state));
+      localStorage.setItem(`aethermap_campaign_${this.state.id}`, JSON.stringify(this.state));
+      
+      // Update the list fallback
+      const listStr = localStorage.getItem('aethermap_campaign_list_fallback');
+      let list = listStr ? JSON.parse(listStr) : [];
+      const idx = list.findIndex((c: any) => c.id === this.state.id);
+      if (idx >= 0) {
+        list[idx].updatedAt = this.state.updatedAt;
+        list[idx].name = this.state.name;
+      } else {
+        list.push({ id: this.state.id, name: this.state.name, system: this.state.system, worldName: this.state.worldName, updatedAt: this.state.updatedAt });
+      }
+      localStorage.setItem('aethermap_campaign_list_fallback', JSON.stringify(list));
+    } catch (e) {
+      console.warn('Failed to save campaign to localStorage:', e);
+    }
 
     if (this.saveTimeout) {
       clearTimeout(this.saveTimeout);
@@ -96,7 +135,7 @@ class CampaignService {
           body: JSON.stringify({ campaign: this.state }),
         });
       } catch (e) {
-        console.error('Failed to persist campaign state to server disk:', e);
+        // Ignore expected errors in Tauri
       } finally {
         this.isSaving = false;
       }
@@ -139,7 +178,16 @@ class CampaignService {
         }
       }
     } catch (e) {
-      console.error('Failed to list campaigns from disk:', e);
+      // expected in Tauri
+    }
+
+    try {
+      const stored = localStorage.getItem('aethermap_campaign_list_fallback');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (e) {
+      console.warn('Failed to load campaigns list from localStorage:', e);
     }
     return [];
   }
@@ -150,28 +198,25 @@ class CampaignService {
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.campaign) {
-          this.state = {
-            ...DEFAULT_CAMPAIGN_STATE,
-            ...json.campaign,
-            time: { ...DEFAULT_CAMPAIGN_STATE.time, ...(json.campaign.time || {}) },
-            quests: json.campaign.quests || [],
-            locations: json.campaign.locations || [],
-            npcs: json.campaign.npcs || [],
-            relationships: json.campaign.relationships || [],
-            factions: json.campaign.factions || [],
-            sessions: json.campaign.sessions || [],
-            timeline: json.campaign.timeline || [],
-            party: json.campaign.party || [],
-            treasury: { ...DEFAULT_CAMPAIGN_STATE.treasury, ...(json.campaign.treasury || {}) },
-            safety: { ...DEFAULT_CAMPAIGN_STATE.safety, ...(json.campaign.safety || {}) },
-          };
+          this.applyLoadedState(json.campaign);
           this.saveState(); // Sets as active_campaign on disk
-          this.notifyListeners();
           return true;
         }
       }
     } catch (e) {
-      console.error('Failed to load campaign from disk:', e);
+      // expected in Tauri
+    }
+
+    try {
+      const stored = localStorage.getItem(`aethermap_campaign_${campaignIdOrFileName}`);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        this.applyLoadedState(parsed);
+        this.saveState();
+        return true;
+      }
+    } catch (e) {
+      console.warn('Failed to load campaign from localStorage:', e);
     }
     return false;
   }
@@ -202,11 +247,24 @@ class CampaignService {
     };
 
     this.state = fullCampaign;
+    
+    // Add to list fallback
+    try {
+      const listStr = localStorage.getItem('aethermap_campaign_list_fallback');
+      const list = listStr ? JSON.parse(listStr) : [];
+      list.push({ id: fullCampaign.id, name: fullCampaign.name, system: fullCampaign.system, worldName: fullCampaign.worldName, updatedAt: fullCampaign.updatedAt });
+      localStorage.setItem('aethermap_campaign_list_fallback', JSON.stringify(list));
+      localStorage.setItem(`aethermap_campaign_${fullCampaign.id}`, JSON.stringify(fullCampaign));
+    } catch (e) {
+      console.warn('Failed to save new campaign to localStorage:', e);
+    }
+
     this.saveState();
     return true;
   }
 
   public async deleteCampaignFromDisk(id: string): Promise<boolean> {
+    let deleted = false;
     try {
       const res = await fetch('/api/campaigns/delete', {
         method: 'POST',
@@ -215,12 +273,26 @@ class CampaignService {
       });
       if (res.ok) {
         const json = await res.json();
-        return !!json.success;
+        if (json.success) deleted = true;
       }
     } catch (e) {
-      console.error('Failed to delete campaign:', e);
+      // expected in Tauri
     }
-    return false;
+
+    try {
+      localStorage.removeItem(`aethermap_campaign_${id}`);
+      const listStr = localStorage.getItem('aethermap_campaign_list_fallback');
+      if (listStr) {
+        let list = JSON.parse(listStr);
+        list = list.filter((c: any) => c.id !== id);
+        localStorage.setItem('aethermap_campaign_list_fallback', JSON.stringify(list));
+      }
+      deleted = true;
+    } catch (e) {
+      console.warn('Failed to delete campaign from localStorage:', e);
+    }
+    
+    return deleted;
   }
 
   public async generateCampaignAi(specs: {

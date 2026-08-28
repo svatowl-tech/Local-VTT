@@ -1,6 +1,7 @@
 import React from 'react';
 import { TravelingMerchantRawData } from '../../types/generatorTypes';
 import { ShoppingBag, Coins, Compass, Sparkles, MessageSquare, ShieldAlert, Truck, MapPin, Copy, Check } from 'lucide-react';
+import { copyToClipboard } from '../../utils/clipboardUtils';
 
 interface TravelingMerchantViewProps {
   merchant: TravelingMerchantRawData;
@@ -12,7 +13,7 @@ export const TravelingMerchantView: React.FC<TravelingMerchantViewProps> = ({ me
   const [copied, setCopied] = React.useState(false);
 
   const handleCopyText = () => {
-    navigator.clipboard.writeText(rawText);
+    copyToClipboard(rawText);
     setCopied(true);
     if (onShowToast) onShowToast('Текст торговца скопирован в буфер обмена');
     setTimeout(() => setCopied(false), 2000);

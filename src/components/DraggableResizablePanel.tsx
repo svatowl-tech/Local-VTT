@@ -52,13 +52,13 @@ export const DraggableResizablePanel: React.FC<Props> = ({
 
   const clampPosition = useCallback(
     (x: number, y: number, w: number, h: number) => {
-      const screenW = typeof window !== 'undefined' ? window.innerWidth : 1920;
-      const screenH = typeof window !== 'undefined' ? window.innerHeight : 1080;
-      const targetW = Math.max(20, w || 200);
-      const targetH = Math.max(20, h || 120);
+      const screenW = typeof window !== 'undefined' ? window.innerWidth : 1280;
+      const screenH = typeof window !== 'undefined' ? window.innerHeight : 720;
+      const targetW = Math.max(20, Math.min(w || 200, screenW - 16));
+      const targetH = Math.max(20, Math.min(h || 120, screenH - 60));
 
       const maxX = Math.max(4, screenW - targetW - 8);
-      const maxY = Math.max(4, screenH - targetH - 64); // Safe buffer for top/bottom docks
+      const maxY = Math.max(4, screenH - targetH - 56); // Safe buffer for top/bottom docks
       const clampedX = Math.min(Math.max(4, x), maxX);
       const clampedY = Math.min(Math.max(4, y), maxY);
       return { x: clampedX, y: clampedY };
@@ -68,31 +68,36 @@ export const DraggableResizablePanel: React.FC<Props> = ({
 
   // Bounds state with localStorage cache
   const [bounds, setBounds] = useState<Bounds>(() => {
+    const screenW = typeof window !== 'undefined' ? window.innerWidth : 1280;
+    const screenH = typeof window !== 'undefined' ? window.innerHeight : 720;
     try {
       const saved = localStorage.getItem(`${STORAGE_PREFIX}${id}`);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+          const w = parsed.width !== undefined ? (typeof parsed.width === 'number' ? Math.min(parsed.width, screenW - 20) : parsed.width) : defaultSize.width;
+          const h = parsed.height !== undefined ? (typeof parsed.height === 'number' ? Math.min(parsed.height, screenH - 70) : parsed.height) : defaultSize.height;
+          const clamped = clampPosition(parsed.x, parsed.y, typeof w === 'number' ? w : 300, typeof h === 'number' ? h : 200);
           return {
-            x: parsed.x,
-            y: parsed.y,
-            width: parsed.width !== undefined ? parsed.width : defaultSize.width,
-            height: parsed.height !== undefined ? parsed.height : defaultSize.height,
+            x: clamped.x,
+            y: clamped.y,
+            width: w,
+            height: h,
           };
         }
       }
     } catch (e) {
       console.warn(`Failed to read panel bounds for ${id}`, e);
     }
-    const initialW = typeof defaultSize.width === 'number' ? defaultSize.width : 340;
-    const initialH = typeof defaultSize.height === 'number' ? defaultSize.height : 240;
+    const initialW = typeof defaultSize.width === 'number' ? Math.min(defaultSize.width, screenW - 20) : Math.min(340, screenW - 20);
+    const initialH = typeof defaultSize.height === 'number' ? Math.min(defaultSize.height, screenH - 80) : Math.min(240, screenH - 80);
     const clampedInit = clampPosition(defaultPosition.x, defaultPosition.y, initialW, initialH);
 
     return {
       x: clampedInit.x,
       y: clampedInit.y,
-      width: defaultSize.width,
-      height: defaultSize.height,
+      width: typeof defaultSize.width === 'number' ? initialW : defaultSize.width,
+      height: typeof defaultSize.height === 'number' ? initialH : defaultSize.height,
     };
   });
 

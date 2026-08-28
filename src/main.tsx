@@ -1,3 +1,4 @@
+import './utils/legacyPolyfills.ts';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
@@ -27,9 +28,24 @@ if (typeof window !== 'undefined') {
         }
 
         if (checkIsTauri() && urlStr && urlStr.includes('/api/')) {
-          // Fast-fail Express endpoints in Tauri to avoid ERR_CONNECTION_REFUSED network spam.
-          // Tauri uses native Rust fallback paths instead.
-          return Promise.reject(new Error('Express API is not available in Tauri environment.'));
+          // Fast-fail Express endpoints in Tauri by returning a safe 503 response
+          // to avoid unhandled rejection crashes and network timeout lag.
+          // Tauri components automatically use native Rust fallbacks.
+          const fallbackBody = JSON.stringify({ success: false, error: 'Express API is not running in standalone Tauri mode' });
+          if (typeof Response !== 'undefined') {
+            return Promise.resolve(new Response(fallbackBody, {
+              status: 503,
+              statusText: 'Service Unavailable in Tauri',
+              headers: { 'Content-Type': 'application/json' },
+            }));
+          }
+          return Promise.resolve({
+            ok: false,
+            status: 503,
+            statusText: 'Service Unavailable in Tauri',
+            json: async () => JSON.parse(fallbackBody),
+            text: async () => fallbackBody,
+          });
         }
 
         if (typeof input === 'string') {
