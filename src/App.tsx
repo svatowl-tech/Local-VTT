@@ -15,6 +15,7 @@ import { ObjectLayerBindingModal } from './components/ObjectLayerBindingModal';
 import { UnifiedAssetFolderModal } from './components/UnifiedAssetFolderModal';
 import { MapVaultModal } from './components/MapVaultModal';
 import { SaveTabToVaultModal } from './components/SaveTabToVaultModal';
+import { DevConsoleModal } from './components/DevConsoleModal';
 import { ViewMode, MapItem, TabletopSessionState, MapVaultItem } from './types';
 import { addMapToWorkspace, removeMapFromWorkspace } from './services/apiClient';
 import { diskAssetAutoSync, DiskSyncState } from './services/diskAssetAutoSync';
@@ -85,6 +86,7 @@ export default function App() {
   const [isUnifiedAssetsModalOpen, setIsUnifiedAssetsModalOpen] = useState<boolean>(false);
   const [isVaultModalOpen, setIsVaultModalOpen] = useState<boolean>(false);
   const [isSaveTabModalOpen, setIsSaveTabModalOpen] = useState<boolean>(false);
+  const [isDevConsoleOpen, setIsDevConsoleOpen] = useState<boolean>(false);
   const [vaultMapsCount, setVaultMapsCount] = useState<number>(() => mapVaultService.getAllItems().length);
   const [selectedObjectForLayer, setSelectedObjectForLayer] = useState<MapItem | null>(null);
   const [diskSyncStatus, setDiskSyncStatus] = useState<DiskSyncState | null>(null);
@@ -323,6 +325,7 @@ export default function App() {
         playerBlackout={session.playerBlackout}
         onTogglePlayerBlackout={togglePlayerBlackout}
         diskSyncStatus={diskSyncStatus}
+        onOpenDevConsole={() => setIsDevConsoleOpen(true)}
       />
 
       {/* Browser Tab Bar for Multiple Prepared Scenes & Maps */}
@@ -493,6 +496,12 @@ export default function App() {
           }}
         />
       )}
+
+      {/* Developer Console & System Diagnostics Modal */}
+      <DevConsoleModal
+        isOpen={isDevConsoleOpen}
+        onClose={() => setIsDevConsoleOpen(false)}
+      />
     </div>
   );
 }

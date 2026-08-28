@@ -36,6 +36,7 @@ import {
   getCustomLayers,
   mapObjectLayerToTabletopLayer,
 } from '../utils/layerHierarchy';
+import { systemSpecsService } from '../services/systemSpecsService';
 
 interface Props {
   maps: MapItem[];
@@ -956,10 +957,10 @@ export const MiroCanvas: React.FC<Props> = memo(({
           <div
             className="absolute pointer-events-none"
             style={{
-              width: '4000px',
-              height: '4000px',
-              left: '-2000px',
-              top: '-2000px',
+              width: `${systemSpecsService.getSpecs().lowSpecModeActive ? 2560 : 3600}px`,
+              height: `${systemSpecsService.getSpecs().lowSpecModeActive ? 2560 : 3600}px`,
+              left: `-${systemSpecsService.getSpecs().lowSpecModeActive ? 1280 : 1800}px`,
+              top: `-${systemSpecsService.getSpecs().lowSpecModeActive ? 1280 : 1800}px`,
               zIndex: gridZIndex,
               opacity: gridOpacity,
             }}
@@ -977,10 +978,10 @@ export const MiroCanvas: React.FC<Props> = memo(({
             <DrawingCanvasLayer
               drawings={drawings}
               currentStroke={currentStroke}
-              width={4000}
-              height={4000}
-              offsetX={2000}
-              offsetY={2000}
+              width={systemSpecsService.getSpecs().lowSpecModeActive ? 2560 : 3600}
+              height={systemSpecsService.getSpecs().lowSpecModeActive ? 2560 : 3600}
+              offsetX={systemSpecsService.getSpecs().lowSpecModeActive ? 1280 : 1800}
+              offsetY={systemSpecsService.getSpecs().lowSpecModeActive ? 1280 : 1800}
             />
           </div>
         )}
@@ -993,10 +994,10 @@ export const MiroCanvas: React.FC<Props> = memo(({
           >
             <AnimatedEffectsLayer
               effects={animatedEffects}
-              width={4000}
-              height={4000}
-              offsetX={2000}
-              offsetY={2000}
+              width={systemSpecsService.getSpecs().lowSpecModeActive ? 2560 : 3600}
+              height={systemSpecsService.getSpecs().lowSpecModeActive ? 2560 : 3600}
+              offsetX={systemSpecsService.getSpecs().lowSpecModeActive ? 1280 : 1800}
+              offsetY={systemSpecsService.getSpecs().lowSpecModeActive ? 1280 : 1800}
               isMaster={true}
               onRemoveEffect={onRemoveAnimatedEffect}
             />
@@ -1034,20 +1035,20 @@ export const MiroCanvas: React.FC<Props> = memo(({
           <div
             className="absolute pointer-events-none"
             style={{
-              width: '4000px',
-              height: '4000px',
-              left: '-2000px',
-              top: '-2000px',
+              width: `${systemSpecsService.getSpecs().lowSpecModeActive ? 2560 : 3600}px`,
+              height: `${systemSpecsService.getSpecs().lowSpecModeActive ? 2560 : 3600}px`,
+              left: `-${systemSpecsService.getSpecs().lowSpecModeActive ? 1280 : 1800}px`,
+              top: `-${systemSpecsService.getSpecs().lowSpecModeActive ? 1280 : 1800}px`,
               zIndex: fogZIndex,
               opacity: fogOpacity,
             }}
           >
             <FogCanvasRenderer
               fog={fog}
-              width={4000}
-              height={4000}
-              offsetX={2000}
-              offsetY={2000}
+              width={systemSpecsService.getSpecs().lowSpecModeActive ? 2560 : 3600}
+              height={systemSpecsService.getSpecs().lowSpecModeActive ? 2560 : 3600}
+              offsetX={systemSpecsService.getSpecs().lowSpecModeActive ? 1280 : 1800}
+              offsetY={systemSpecsService.getSpecs().lowSpecModeActive ? 1280 : 1800}
               className="w-full h-full"
               isMasterPreview={true}
             />

@@ -43,6 +43,7 @@ interface Props {
   playerBlackout?: PlayerBlackoutState;
   onTogglePlayerBlackout?: () => void;
   diskSyncStatus?: DiskSyncState | null;
+  onOpenDevConsole?: () => void;
 }
 
 export const WindowSwitcherBar: React.FC<Props> = ({
@@ -64,6 +65,7 @@ export const WindowSwitcherBar: React.FC<Props> = ({
   playerBlackout,
   onTogglePlayerBlackout,
   diskSyncStatus,
+  onOpenDevConsole,
 }) => {
   const isBlackoutActive = !!playerBlackout?.enabled;
   const [isCompact, setIsCompact] = useState<boolean>(() => uiDensityService.isCompactActive());
@@ -81,16 +83,8 @@ export const WindowSwitcherBar: React.FC<Props> = ({
   };
 
   const handleOpenDevTools = async () => {
-    try {
-      // @ts-ignore
-      if (window.__TAURI_INTERNALS__) {
-        const { invoke } = await import('@tauri-apps/api/core');
-        await invoke('plugin:webview|internal_toggle_devtools');
-      } else {
-        console.log('DevTools action is for Desktop version only.');
-      }
-    } catch (e) {
-      console.error(e);
+    if (onOpenDevConsole) {
+      onOpenDevConsole();
     }
   };
 

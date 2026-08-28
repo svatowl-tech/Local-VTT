@@ -46,8 +46,25 @@ body,
 .backdrop-blur-xl,
 .backdrop-blur-2xl,
 .backdrop-blur {
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+/* HIGH-PERFORMANCE LOW-SPEC MODE FOR OLDER GPUS (e.g. GeForce 320M / Core 2 Duo) */
+html.low-spec-mode .backdrop-blur-md,
+html.low-spec-mode .backdrop-blur-sm,
+html.low-spec-mode .backdrop-blur-lg,
+html.low-spec-mode .backdrop-blur-xl,
+html.low-spec-mode .backdrop-blur-2xl,
+html.low-spec-mode .backdrop-blur {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+  background-color: rgba(9, 9, 11, 0.96) !important;
+}
+
+html.low-spec-mode * {
+  text-shadow: none !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.4) !important;
 }
 
 body {

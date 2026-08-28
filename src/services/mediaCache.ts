@@ -3,8 +3,27 @@ import { mapLibraryCatalog } from './mapLibraryCatalog';
 import { resolveApiUrl } from '../utils/apiUrlHelper';
 
 // In-memory cache for resolved Blob object URLs to avoid continuous IDB reads and memory leaks
+// Bounded LRU cache size (max 40 entries) to prevent 2GB RAM exhaustion
+const MAX_CACHED_MEDIA = 40;
 const urlCache = new Map<string, string>();
 const pendingPromises = new Map<string, Promise<string | null>>();
+
+function evictOldestIfNeeded(): void {
+  if (urlCache.size <= MAX_CACHED_MEDIA) return;
+  // Get first key (oldest in insertion order)
+  const oldestKey = urlCache.keys().next().value;
+  if (!oldestKey) return;
+  
+  const oldUrl = urlCache.get(oldestKey);
+  if (oldUrl && oldUrl.startsWith('blob:')) {
+    try {
+      URL.revokeObjectURL(oldUrl);
+    } catch {
+      // ignore
+    }
+  }
+  urlCache.delete(oldestKey);
+}
 
 /**
  * Gets or loads a cached object URL for a given map item.
@@ -117,6 +136,7 @@ export async function getCachedMediaUrl(mapId: string, rawUrl: string): Promise<
  * Register a newly created object URL in cache
  */
 export function registerCachedMediaUrl(key: string, url: string): void {
+  evictOldestIfNeeded();
   urlCache.set(key, url);
 }
 

@@ -83,10 +83,10 @@ export const CustomMapUploadModal: React.FC<Props> = ({
       isOpen={isOpen}
       onClose={onClose}
       icon={Upload}
-      defaultPosition={{ x: 220, y: 100 }}
-      defaultSize={{ width: 520, height: 560 }}
-      minWidth={360}
-      minHeight={400}
+      defaultPosition={{ x: 100, y: 70 }}
+      defaultSize={{ width: 480, height: 480 }}
+      minWidth={340}
+      minHeight={300}
       zIndex={zIndex}
       onFocus={onFocus}
     >

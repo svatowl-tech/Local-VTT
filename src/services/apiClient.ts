@@ -19,7 +19,7 @@ import { saveIDBMediaFile, deleteIDBMediaFile } from './db';
 import { generateImageThumbnail, generateVideoThumbnail } from './thumbnailGenerator';
 import { mapLibraryCatalog } from './mapLibraryCatalog';
 
-async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 1500): Promise<Response> {
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 3500): Promise<Response> {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
   try {

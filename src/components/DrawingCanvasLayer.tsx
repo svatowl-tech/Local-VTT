@@ -19,13 +19,17 @@ interface Props {
 export const DrawingCanvasLayer: React.FC<Props> = memo(({
   drawings,
   currentStroke,
-  width = 4000,
-  height = 4000,
-  offsetX = 2000,
-  offsetY = 2000,
+  width = 2560,
+  height = 2560,
+  offsetX = 1280,
+  offsetY = 1280,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const staticCanvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Clamp buffer dimensions to save GPU memory on low-spec systems
+  const targetW = Math.min(width, 2560);
+  const targetH = Math.min(height, 2560);
 
   const renderStrokeToContext = (ctx: CanvasRenderingContext2D, stroke: DrawingStroke) => {
     if (!stroke.points || stroke.points.length < 2) return;
@@ -76,15 +80,15 @@ export const DrawingCanvasLayer: React.FC<Props> = memo(({
       staticCanvasRef.current = document.createElement('canvas');
     }
     const staticCanvas = staticCanvasRef.current;
-    if (staticCanvas.width !== width || staticCanvas.height !== height) {
-      staticCanvas.width = width;
-      staticCanvas.height = height;
+    if (staticCanvas.width !== targetW || staticCanvas.height !== targetH) {
+      staticCanvas.width = targetW;
+      staticCanvas.height = targetH;
     }
 
     const staticCtx = staticCanvas.getContext('2d');
     if (!staticCtx) return;
 
-    staticCtx.clearRect(0, 0, width, height);
+    staticCtx.clearRect(0, 0, targetW, targetH);
 
     for (const stroke of drawings) {
       renderStrokeToContext(staticCtx, stroke);
@@ -95,7 +99,7 @@ export const DrawingCanvasLayer: React.FC<Props> = memo(({
     if (mainCanvas) {
       const mainCtx = mainCanvas.getContext('2d');
       if (mainCtx) {
-        mainCtx.clearRect(0, 0, width, height);
+        mainCtx.clearRect(0, 0, targetW, targetH);
         mainCtx.drawImage(staticCanvas, 0, 0);
         if (currentStroke && currentStroke.points.length > 1) {
           renderStrokeToContext(mainCtx, {
@@ -105,7 +109,7 @@ export const DrawingCanvasLayer: React.FC<Props> = memo(({
         }
       }
     }
-  }, [drawings, width, height, offsetX, offsetY]);
+  }, [drawings, targetW, targetH, offsetX, offsetY]);
 
   // 2. Fast-path single stroke blit when user is dragging brush / highlighter
   useEffect(() => {
@@ -114,7 +118,7 @@ export const DrawingCanvasLayer: React.FC<Props> = memo(({
     const mainCtx = mainCanvas.getContext('2d');
     if (!mainCtx) return;
 
-    mainCtx.clearRect(0, 0, width, height);
+    mainCtx.clearRect(0, 0, targetW, targetH);
 
     if (staticCanvasRef.current) {
       mainCtx.drawImage(staticCanvasRef.current, 0, 0);
@@ -126,17 +130,17 @@ export const DrawingCanvasLayer: React.FC<Props> = memo(({
         ...currentStroke,
       });
     }
-  }, [currentStroke, width, height, offsetX, offsetY]);
+  }, [currentStroke, targetW, targetH, offsetX, offsetY]);
 
   return (
     <canvas
       ref={canvasRef}
-      width={width}
-      height={height}
+      width={targetW}
+      height={targetH}
       className="absolute inset-0 pointer-events-none transform-gpu"
       style={{
-        width: `${width}px`,
-        height: `${height}px`,
+        width: `${targetW}px`,
+        height: `${targetH}px`,
         left: `${-offsetX}px`,
         top: `${-offsetY}px`,
         zIndex: 2000005,

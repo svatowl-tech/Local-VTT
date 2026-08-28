@@ -4,7 +4,11 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 import { resolveApiUrl, checkIsTauri } from './utils/apiUrlHelper.ts';
+import { loggerService } from './services/loggerService.ts';
 import './index.css';
+
+// Initialize global in-app logging interceptor
+loggerService.init();
 
 // Prevent uncaught errors from unhandled asynchronous promises
 if (typeof window !== 'undefined') {

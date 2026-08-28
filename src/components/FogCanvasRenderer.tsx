@@ -6,6 +6,7 @@ import {
 } from '../utils/fogMistNoise';
 import { tabletopMathEngine } from '../utils/tabletopMathEngine';
 import { particleSpriteCache } from '../utils/precomputedParticleSprites';
+import { systemSpecsService } from '../services/systemSpecsService';
 
 interface Props {
   fog: FogState;
@@ -40,23 +41,27 @@ export const FogCanvasRenderer: React.FC<Props> = memo(({
   const rafIdRef = useRef<number | null>(null);
   const lastTimeRef = useRef<number>(0);
 
+  const isLowSpec = systemSpecsService.getSpecs().lowSpecModeActive;
   const styleType = fog.style || 'white-mist';
   const theme = FOG_THEMES[styleType] || FOG_THEMES['white-mist'];
-  const isAnimated = fog.animated !== false;
+  const isAnimated = fog.animated !== false && !isLowSpec;
 
-  const targetWidth = Math.min(width, 4000);
-  const targetHeight = Math.min(height, 4000);
+  // Clamp canvas buffer size on low-spec GPUs to save VRAM (2048x2048 = 16MB vs 4000x4000 = 64MB)
+  const maxBufferSize = isLowSpec ? 2048 : 3000;
+  const targetWidth = Math.min(width, maxBufferSize);
+  const targetHeight = Math.min(height, maxBufferSize);
+  const textureRes = isLowSpec ? 256 : 512;
 
   // 1. Generate seamless fractal noise cloud textures when theme style changes (Cached)
   useEffect(() => {
     if (!fog.enabled) return;
 
-    if (currentThemeStyleRef.current !== styleType || !texture1Ref.current) {
-      texture1Ref.current = createSeamlessMistTexture(theme, 512, 0);
-      texture2Ref.current = createSeamlessMistTexture(theme, 512, 17.3);
-      currentThemeStyleRef.current = styleType;
+    if (currentThemeStyleRef.current !== `${styleType}_${textureRes}` || !texture1Ref.current) {
+      texture1Ref.current = createSeamlessMistTexture(theme, textureRes, 0);
+      texture2Ref.current = createSeamlessMistTexture(theme, textureRes, 17.3);
+      currentThemeStyleRef.current = `${styleType}_${textureRes}`;
     }
-  }, [fog.enabled, styleType, theme]);
+  }, [fog.enabled, styleType, theme, textureRes]);
 
   // 2. Pre-bake Fog Reveal / Conceal Alpha Mask onto Offscreen Canvas using fast Sprite Stamps
   useEffect(() => {
